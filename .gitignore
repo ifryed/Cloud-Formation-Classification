@@ -1,2 +1,12 @@
-data/
 .ipynb_checkpoints/
+*.iml
+
+data/.idea/
+
+*.png
+
+*.jpg
+
+data/train.csv
+
+data/sample_submission.csv
