@@ -26,51 +26,22 @@ import tensorflow as tf
 class Datapack:
     images: np.ndarray
     labels: np.ndarray
+    batch_index = 0
+
+    def next_batch(self, n_batch: int) -> (np.ndarray, np.ndarray):
+        if self.batch_index + n_batch >= len(self.images):
+            self.batch_index = 0
+
+        return (self.images[self.batch_index:self.batch_index + n_batch, :],
+                self.labels[self.batch_index:self.batch_index + n_batch, :],)
 
 
 # Define the neural network
-def perceptron(x_dict: dict):
+def perceptron(x: np.ndarray, weights: dict, biases: dict):
     global num_classes
-    # TF Estimator input is a dict, in case of multiple inputs
-    x = x_dict['images']
-    out_layer = tf.layers.dense(x, num_classes)
+    # Output fully connected layer with a neuron for each class
+    out_layer = tf.matmul(x, weights['out']) + biases['out']
     return out_layer
-
-
-# Define the model function (following TF Estimator Template)
-def model_fn(features, labels, mode):
-    # Build the neural network
-    logits = perceptron(features)
-
-    # Predictions
-    pred_classes = tf.argmax(logits, axis=1)
-    pred_probas = tf.nn.softmax(logits)
-
-    # If prediction mode, early return
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        return tf.comapt.v1.estimator.EstimatorSpec(mode, predictions=pred_classes)
-
-    # Define loss and optimizer
-    loss_op = tf.reduce_mean(
-        tf.nn.sparse_softmax_cross_entropy_with_logits(
-            logits=logits, labels=tf.cast(labels, dtype=tf.int32)))
-    optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=learning_rate)
-    train_op = optimizer.minimize(loss_op,
-                                  global_step=tf.compat.v1.train.get_global_step())
-
-    # Evaluate the accuracy of the model
-    acc_op = tf.compat.v1.metrics.accuracy(labels=labels, predictions=pred_classes)
-
-    # TF Estimators requires to return a EstimatorSpec, that specify
-    # the different ops for training, evaluating, ...
-    estim_specs = tf.compat.v1.estimator.EstimatorSpec(
-        mode=mode,
-        predictions=pred_classes,
-        loss=loss_op,
-        train_op=train_op,
-        eval_metric_ops={'accuracy': acc_op})
-
-    return estim_specs
 
 
 def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
@@ -91,7 +62,7 @@ def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
     return train, test
 
 
-def loadData(folder_path: str) -> (Datapack, dict):
+def loadData(folder_path: str, class_cap: int = -1) -> (Datapack, dict):
     print("Loading data...")
     classes = os.listdir(folder_path)
     class2id = {x: i for i, x in enumerate(classes)}
@@ -99,7 +70,7 @@ def loadData(folder_path: str) -> (Datapack, dict):
     images = []
     labels = []
     for clz in classes:
-        max_samp = 100
+        max_samp = class_cap
         sam_count = 0
         print('\t%s:\t' % clz, end='')
         class_path = os.path.join(folder_path, clz)
@@ -108,8 +79,11 @@ def loadData(folder_path: str) -> (Datapack, dict):
 
             img = cv2.imread(img_full_path, cv2.IMREAD_GRAYSCALE)
             img = img.reshape((1, -1))
+            # img = img / img.max()
             images.append(img)
-            labels.append(class2id[clz])
+            lbl_vec = np.zeros(len(classes))
+            lbl_vec[class2id[clz]] = 1
+            labels.append(lbl_vec)
             sam_count += 1
             max_samp -= 1
             if max_samp == 0:
@@ -123,9 +97,67 @@ def loadData(folder_path: str) -> (Datapack, dict):
     return data, class2id
 
 
+def setupWeights(input_num: int, class_num: int) -> (dict, dict):
+    # Store layers weight & bias
+    weights = {
+        'out': tf.Variable(tf.random.normal([input_num, class_num]))
+    }
+    biases = {
+        'out': tf.Variable(tf.random.normal([class_num]))
+    }
+
+    return weights, biases
+
+
+def build_and_run(nn, n_input: int, n_classes: int, train: Datapack, test: Datapack, n_steps: int, n_batch: int):
+    # Construct model
+    # tf Graph input
+    X = tf.compat.v1.placeholder("float", [None, n_input])
+    Y = tf.compat.v1.placeholder("float", [None, n_classes])
+    logits = nn(X)
+
+    # Define loss and optimizer
+    loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(
+        logits=logits, labels=Y))
+    optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate)
+    train_op = optimizer.minimize(loss_op)
+
+    # Evaluate model (with test logits, for dropout to be disabled)
+    correct_pred = tf.equal(tf.argmax(logits, 1), tf.argmax(Y, 1))
+    accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+
+    # Initialize the variables (i.e. assign their default value)
+    init = tf.compat.v1.global_variables_initializer()
+
+    # Start training
+    with tf.compat.v1.Session() as sess:
+
+        # Run the initializer
+        sess.run(init)
+
+        for step in range(1, n_steps + 1):
+            batch_x, batch_y = train.next_batch(n_batch)
+            # Run optimization op (backprop)
+            sess.run(train_op, feed_dict={X: batch_x, Y: batch_y})
+            if step % display_step == 0 or step == 1:
+                # Calculate batch loss and accuracy
+                loss, acc = sess.run([loss_op, accuracy], feed_dict={X: batch_x,
+                                                                     Y: batch_y})
+                print("Step " + str(step) + ", Minibatch Loss= "
+                      + "{:.4f}".format(loss) + ", Training Accuracy= "
+                      + "{:.3f}".format(acc))
+
+        print("Optimization Finished!")
+
+        # Calculate accuracy for MNIST test images
+        print("Testing Accuracy:",
+              sess.run(accuracy, feed_dict={X: test.images,
+                                            Y: test.labels}))
+
+
 def run():
     data_folder = os.path.join('data/mini_data')
-    data, class2id = loadData(data_folder)
+    data, class2id = loadData(data_folder, -100)
     train, test = splitData(data, ratio=0.7)
 
     # Parameters
@@ -133,40 +165,24 @@ def run():
     learning_rate = 0.1
     num_steps = 1000
     batch_size = 128
-    display_step = 100
+    display_step = 50
 
     # Network Parameters
     global num_classes, num_input
     num_input = len(data.images[0])
     num_classes = len(class2id)
 
-    # Build the Estimator
-    model = tf.compat.v1.estimator.Estimator(model_fn)
-    # Define the input function for training
-    input_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
-        x={'images': train.images}, y=train.labels,
-        batch_size=batch_size, num_epochs=None, shuffle=True)
-    # Define the input function for evaluating
-    test_fn = tf.compat.v1.estimator.inputs.numpy_input_fn(
-        x={'images': test.images}, y=test.labels,
-        batch_size=batch_size, shuffle=False)
+    p_weights, p_bais = setupWeights(num_input, num_classes)
 
-    train_spec = tf.compat.v1.estimator.TrainSpec(input_fn=input_fn,
-                                                  max_steps=num_steps)
-    eval_spec = tf.compat.v1.estimator.EvalSpec(input_fn=test_fn,
-                                                steps=10,
-                                                start_delay_secs=60,
-                                                throttle_secs=60)
-
-    # Train the Model
-    tf.compat.v1.estimator.train_and_evaluate(model, train_spec, eval_spec)
-    # model.train(input_fn, steps=num_steps)
-
-    # Evaluate the Model
-    # Use the Estimator 'evaluate' method
-    e = model.evaluate(test_fn)
-
-    print("Testing Accuracy:", e['accuracy'])
+    build_and_run(
+        lambda x: perceptron(x, p_weights, p_bais),
+        n_input=num_input,
+        n_classes=num_classes,
+        train=train,
+        test=test,
+        n_steps=num_steps,
+        n_batch=batch_size
+    )
 
 
 if __name__ == "__main__":
