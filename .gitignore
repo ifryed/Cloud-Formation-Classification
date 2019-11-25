@@ -12,3 +12,5 @@ data/train.csv
 data/sample_submission.csv
 
 .idea/
+
+tf_logs/

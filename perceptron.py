@@ -109,18 +109,32 @@ def setupWeights(input_num: int, class_num: int) -> (dict, dict):
     return weights, biases
 
 
-def build_and_run(nn, n_input: int, n_classes: int, train: Datapack, test: Datapack, n_steps: int, n_batch: int):
+def build_and_run(nn, n_input: int, n_classes: int,
+                  train: Datapack, test: Datapack,
+                  n_steps: int, n_batch: int,
+                  weight: dict, biases: dict):
     # Construct model
     # tf Graph input
     X = tf.compat.v1.placeholder("float", [None, n_input])
     Y = tf.compat.v1.placeholder("float", [None, n_classes])
     logits = nn(X)
 
-    # Define loss and optimizer
-    loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(
-        logits=logits, labels=Y))
-    optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate)
-    train_op = optimizer.minimize(loss_op)
+    # TensorBoard
+    # Construct model and encapsulating all ops into scopes, making
+    # Tensorboard's Graph visualization more convenient
+    with tf.name_scope('Model'):
+        # Model
+        pred = tf.nn.softmax(tf.matmul(X, weight['out']) + biases['out'])  # Softmax
+    with tf.name_scope('Loss'):
+        # Minimize error using cross entropy
+        loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Y))
+    with tf.name_scope('SGD'):
+        # Gradient Descent
+        train_op = tf.train.AdamOptimizer(learning_rate).minimize(loss_op)
+    with tf.name_scope('Accuracy'):
+        # Accuracy
+        acc = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
+        acc = tf.reduce_mean(tf.cast(acc, tf.float32))
 
     # Evaluate model (with test logits, for dropout to be disabled)
     correct_pred = tf.equal(tf.argmax(logits, 1), tf.argmax(Y, 1))
@@ -129,8 +143,19 @@ def build_and_run(nn, n_input: int, n_classes: int, train: Datapack, test: Datap
     # Initialize the variables (i.e. assign their default value)
     init = tf.compat.v1.global_variables_initializer()
 
+    # Create a summary to monitor cost tensor
+    tf.summary.scalar("loss", loss_op)
+    # Create a summary to monitor accuracy tensor
+    tf.summary.scalar("accuracy", acc)
+    # Merge all summaries into a single op
+    merged_summary_op = tf.summary.merge_all()
+
     # Start training
+    os.makedirs('./tf_logs/', exist_ok=True)
     with tf.compat.v1.Session() as sess:
+
+        # op to write logs to Tensorboard
+        summary_writer = tf.summary.FileWriter("./tf_logs/", graph=tf.get_default_graph())
 
         # Run the initializer
         sess.run(init)
@@ -138,14 +163,16 @@ def build_and_run(nn, n_input: int, n_classes: int, train: Datapack, test: Datap
         for step in range(1, n_steps + 1):
             batch_x, batch_y = train.next_batch(n_batch)
             # Run optimization op (backprop)
-            sess.run(train_op, feed_dict={X: batch_x, Y: batch_y})
+            _, c, summary = sess.run([train_op, loss_op, merged_summary_op],
+                                     feed_dict={X: batch_x,
+                                                Y: batch_y})
+
+            summary_writer.add_summary(summary, step)
             if step % display_step == 0 or step == 1:
                 # Calculate batch loss and accuracy
-                loss, acc = sess.run([loss_op, accuracy], feed_dict={X: batch_x,
-                                                                     Y: batch_y})
-                print("Step " + str(step) + ", Minibatch Loss= "
-                      + "{:.4f}".format(loss) + ", Training Accuracy= "
-                      + "{:.3f}".format(acc))
+                print("Step " + str(step)
+                      + ", Training Accuracy= " + "{:.3f}".format(acc.eval({X: train.images, Y: train.labels}))
+                      + ", Test Accuracy= " + "{:.3f}".format(acc.eval({X: test.images, Y: test.labels})))
 
         print("Optimization Finished!")
 
@@ -158,30 +185,34 @@ def build_and_run(nn, n_input: int, n_classes: int, train: Datapack, test: Datap
 def run():
     data_folder = os.path.join('data/mini_data')
     data, class2id = loadData(data_folder, -100)
-    train, test = splitData(data, ratio=0.7)
+    train, test = splitData(data, ratio=0.9)
 
     # Parameters
     global learning_rate, display_step
     learning_rate = 0.1
-    num_steps = 1000
+    epoch = len(train.images)
     batch_size = 128
-    display_step = 50
+    num_steps = (epoch * 2) // batch_size
+    print("Steps:", num_steps)
+    display_step = 20
 
     # Network Parameters
     global num_classes, num_input
     num_input = len(data.images[0])
     num_classes = len(class2id)
 
-    p_weights, p_bais = setupWeights(num_input, num_classes)
+    p_weights, p_bias = setupWeights(num_input, num_classes)
 
     build_and_run(
-        lambda x: perceptron(x, p_weights, p_bais),
+        lambda x: perceptron(x, p_weights, p_bias),
         n_input=num_input,
         n_classes=num_classes,
         train=train,
         test=test,
         n_steps=num_steps,
-        n_batch=batch_size
+        n_batch=batch_size,
+        weight=p_weights,
+        biases=p_bias
     )
 
 
