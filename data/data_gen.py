@@ -74,8 +74,8 @@ def getBB(pix_mask):
 
 
 def genDataBB(data):
-    ## Saving the images at size 350X525
-    ## Each image contains only one type
+    # Saving the images at size 350X525
+    # Each image contains only one type
     output = os.path.join('mini_data')
 
     out_w, out_h = 256, 256
