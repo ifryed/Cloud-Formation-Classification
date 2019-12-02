@@ -14,6 +14,8 @@ from __future__ import print_function
 
 # Import MNIST data
 import os
+import shutil
+
 from dataclasses import dataclass
 
 import cv2
@@ -143,19 +145,24 @@ def build_and_run(nn, n_input: int, n_classes: int,
     # Initialize the variables (i.e. assign their default value)
     init = tf.compat.v1.global_variables_initializer()
 
-    # Create a summary to monitor cost tensor
-    tf.summary.scalar("loss", loss_op)
     # Create a summary to monitor accuracy tensor
-    tf.summary.scalar("accuracy", acc)
-    # Merge all summaries into a single op
-    merged_summary_op = tf.summary.merge_all()
+    training_summary = tf.summary.scalar("accuracy", acc)
+    validation_summary = tf.summary.scalar("accuracy", acc)
+
+    # Logging
+    tf_logs_path = './tf_logs'
+    if os.path.exists(tf_logs_path):
+        for filename in os.listdir(tf_logs_path):
+            file_path = os.path.join(tf_logs_path, filename)
+            os.remove(file_path)
+    os.makedirs('./tf_logs/train', exist_ok=True)
+    os.makedirs('./tf_logs/test', exist_ok=True)
 
     # Start training
-    os.makedirs('./tf_logs/', exist_ok=True)
     with tf.compat.v1.Session() as sess:
-
         # op to write logs to Tensorboard
-        summary_writer = tf.summary.FileWriter("./tf_logs/", graph=tf.get_default_graph())
+        summary_writer_train = tf.summary.FileWriter("./tf_logs/train", graph=tf.compat.v1.get_default_graph())
+        summary_writer_test = tf.summary.FileWriter("./tf_logs/test", graph=tf.compat.v1.get_default_graph())
 
         # Run the initializer
         sess.run(init)
@@ -163,20 +170,28 @@ def build_and_run(nn, n_input: int, n_classes: int,
         for step in range(1, n_steps + 1):
             batch_x, batch_y = train.next_batch(n_batch)
             # Run optimization op (backprop)
-            _, c, summary = sess.run([train_op, loss_op, merged_summary_op],
-                                     feed_dict={X: batch_x,
-                                                Y: batch_y})
+            _, c = sess.run([train_op, loss_op],
+                            feed_dict={X: batch_x,
+                                       Y: batch_y})
 
-            summary_writer.add_summary(summary, step)
             if step % display_step == 0 or step == 1:
                 # Calculate batch loss and accuracy
                 print("Step " + str(step)
-                      + ", Training Accuracy= " + "{:.3f}".format(acc.eval({X: train.images, Y: train.labels}))
-                      + ", Test Accuracy= " + "{:.3f}".format(acc.eval({X: test.images, Y: test.labels})))
+                      + ",\t Training Accuracy= " + "{:.3f}".format(acc.eval({X: train.images, Y: train.labels}))
+                      + ",\t Test Accuracy= " + "{:.3f}".format(acc.eval({X: test.images, Y: test.labels})))
+
+                _, summary_train = sess.run([acc, training_summary],
+                                            feed_dict={X: train.images,
+                                                       Y: train.labels})
+                summary_writer_train.add_summary(summary_train, step)
+                _, summary_test = sess.run([acc, validation_summary],
+                                           feed_dict={X: test.images,
+                                                      Y: test.labels})
+                summary_writer_test.add_summary(summary_test, step)
 
         print("Optimization Finished!")
 
-        # Calculate accuracy for MNIST test images
+        # Calculate accuracy for the Cloud dataset test images
         print("Testing Accuracy:",
               sess.run(accuracy, feed_dict={X: test.images,
                                             Y: test.labels}))
@@ -188,13 +203,13 @@ def run():
     train, test = splitData(data, ratio=0.9)
 
     # Parameters
-    global learning_rate, display_step
-    learning_rate = 0.1
+    global learning_rate, display_step, epoch
+    learning_rate = 0.01
     epoch = len(train.images)
-    batch_size = 128
-    num_steps = (epoch * 2) // batch_size
+    batch_size = 128 * 4
+    num_steps = (epoch * 50) // batch_size
     print("Steps:", num_steps)
-    display_step = 20
+    display_step = (epoch // batch_size)
 
     # Network Parameters
     global num_classes, num_input

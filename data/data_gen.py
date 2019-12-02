@@ -77,6 +77,7 @@ def genDataBB(data):
     # Saving the images at size 350X525
     # Each image contains only one type
     output = os.path.join('mini_data')
+    os.makedirs(output, exist_ok=True)
 
     out_w, out_h = 256, 256
     name_counter = 0
@@ -110,6 +111,8 @@ def main():
     print("Classes:", data.keys())
 
     genDataBB(data)
+
+    print("Done!")
 
 
 if __name__ == "__main__":
