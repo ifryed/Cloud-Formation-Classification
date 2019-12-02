@@ -146,15 +146,18 @@ def build_and_run(nn, n_input: int, n_classes: int,
     init = tf.compat.v1.global_variables_initializer()
 
     # Create a summary to monitor accuracy tensor
-    training_summary = tf.summary.scalar("accuracy", acc)
-    validation_summary = tf.summary.scalar("accuracy", acc)
+    tf.summary.scalar("accuracy", acc)
+    merged_summary = tf.summary.merge_all()
 
     # Logging
     tf_logs_path = './tf_logs'
     if os.path.exists(tf_logs_path):
         for filename in os.listdir(tf_logs_path):
             file_path = os.path.join(tf_logs_path, filename)
-            os.remove(file_path)
+            if os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+            else:
+                os.remove(file_path)
     os.makedirs('./tf_logs/train', exist_ok=True)
     os.makedirs('./tf_logs/test', exist_ok=True)
 
@@ -180,11 +183,11 @@ def build_and_run(nn, n_input: int, n_classes: int,
                       + ",\t Training Accuracy= " + "{:.3f}".format(acc.eval({X: train.images, Y: train.labels}))
                       + ",\t Test Accuracy= " + "{:.3f}".format(acc.eval({X: test.images, Y: test.labels})))
 
-                _, summary_train = sess.run([acc, training_summary],
+                _, summary_train = sess.run([acc, merged_summary],
                                             feed_dict={X: train.images,
                                                        Y: train.labels})
                 summary_writer_train.add_summary(summary_train, step)
-                _, summary_test = sess.run([acc, validation_summary],
+                _, summary_test = sess.run([acc, merged_summary],
                                            feed_dict={X: test.images,
                                                       Y: test.labels})
                 summary_writer_test.add_summary(summary_test, step)
@@ -199,7 +202,7 @@ def build_and_run(nn, n_input: int, n_classes: int,
 
 def run():
     data_folder = os.path.join('data/mini_data')
-    data, class2id = loadData(data_folder, -100)
+    data, class2id = loadData(data_folder, 1000)
     train, test = splitData(data, ratio=0.9)
 
     # Parameters
