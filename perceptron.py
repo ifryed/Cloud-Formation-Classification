@@ -64,6 +64,15 @@ def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
     return train, test
 
 
+def preProcess(img):
+    img = img / 255
+    thrs = .5
+    img[img < thrs] = 0
+    img[img >= thrs] = 1
+
+    return img
+
+
 def loadData(folder_path: str, class_cap: int = -1) -> (Datapack, dict):
     print("Loading data...")
     classes = os.listdir(folder_path)
@@ -80,8 +89,8 @@ def loadData(folder_path: str, class_cap: int = -1) -> (Datapack, dict):
             img_full_path = os.path.join(class_path, img_path)
 
             img = cv2.imread(img_full_path, cv2.IMREAD_GRAYSCALE)
+            img = preProcess(img)
             img = img.reshape((1, -1))
-            # img = img / img.max()
             images.append(img)
             lbl_vec = np.zeros(len(classes))
             lbl_vec[class2id[clz]] = 1
@@ -170,6 +179,7 @@ def build_and_run(nn, n_input: int, n_classes: int,
         # Run the initializer
         sess.run(init)
 
+        epoch_count = 0
         for step in range(1, n_steps + 1):
             batch_x, batch_y = train.next_batch(n_batch)
             # Run optimization op (backprop)
@@ -179,9 +189,10 @@ def build_and_run(nn, n_input: int, n_classes: int,
 
             if step % display_step == 0 or step == 1:
                 # Calculate batch loss and accuracy
-                print("Step " + str(step)
+                print("Epoch " + str(epoch_count)
                       + ",\t Training Accuracy= " + "{:.3f}".format(acc.eval({X: train.images, Y: train.labels}))
                       + ",\t Test Accuracy= " + "{:.3f}".format(acc.eval({X: test.images, Y: test.labels})))
+                epoch_count += 1
 
                 _, summary_train = sess.run([acc, merged_summary],
                                             feed_dict={X: train.images,
@@ -202,7 +213,7 @@ def build_and_run(nn, n_input: int, n_classes: int,
 
 def run():
     data_folder = os.path.join('data/mini_data')
-    data, class2id = loadData(data_folder, 1000)
+    data, class2id = loadData(data_folder, 3000)
     train, test = splitData(data, ratio=0.9)
 
     # Parameters
@@ -210,7 +221,7 @@ def run():
     learning_rate = 0.01
     epoch = len(train.images)
     batch_size = 128 * 4
-    num_steps = (epoch * 50) // batch_size
+    num_steps = (epoch * 100) // batch_size
     print("Steps:", num_steps)
     display_step = (epoch // batch_size)
 
