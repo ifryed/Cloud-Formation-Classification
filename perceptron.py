@@ -155,7 +155,8 @@ def build_and_run(nn, n_input: int, n_classes: int,
     init = tf.compat.v1.global_variables_initializer()
 
     # Create a summary to monitor accuracy tensor
-    tf.summary.scalar("accuracy", acc)
+    tf.summary.scalar("Accuracy", acc)
+    tf.summary.scalar("Loss", loss_op)
     merged_summary = tf.summary.merge_all()
 
     # Logging
@@ -194,13 +195,13 @@ def build_and_run(nn, n_input: int, n_classes: int,
                       + ",\t Test Accuracy= " + "{:.3f}".format(acc.eval({X: test.images, Y: test.labels})))
                 epoch_count += 1
 
-                _, summary_train = sess.run([acc, merged_summary],
-                                            feed_dict={X: train.images,
-                                                       Y: train.labels})
+                _, _, summary_train = sess.run([acc, loss_op, merged_summary],
+                                               feed_dict={X: train.images,
+                                                          Y: train.labels})
                 summary_writer_train.add_summary(summary_train, step)
-                _, summary_test = sess.run([acc, merged_summary],
-                                           feed_dict={X: test.images,
-                                                      Y: test.labels})
+                _, _, summary_test = sess.run([acc, loss_op, merged_summary],
+                                              feed_dict={X: test.images,
+                                                         Y: test.labels})
                 summary_writer_test.add_summary(summary_test, step)
 
         print("Optimization Finished!")
