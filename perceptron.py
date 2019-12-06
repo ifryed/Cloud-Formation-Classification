@@ -13,6 +13,7 @@ Project: https://github.com/aymericdamien/TensorFlow-Examples/
 from __future__ import print_function
 
 # Import MNIST data
+import datetime
 import os
 import shutil
 
@@ -135,13 +136,13 @@ def build_and_run(nn, n_input: int, n_classes: int,
     # Tensorboard's Graph visualization more convenient
     with tf.name_scope('Model'):
         # Model
-        pred = tf.nn.softmax(tf.matmul(X, weight['out']) + biases['out'])  # Softmax
+        pred = tf.nn.softmax(logits)
     with tf.name_scope('Loss'):
         # Minimize error using cross entropy
         loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Y))
     with tf.name_scope('SGD'):
         # Gradient Descent
-        train_op = tf.train.AdamOptimizer(learning_rate).minimize(loss_op)
+        train_op = tf.compat.v1.train.e(learning_rate).minimize(loss_op)
     with tf.name_scope('Accuracy'):
         # Accuracy
         acc = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
@@ -155,27 +156,22 @@ def build_and_run(nn, n_input: int, n_classes: int,
     init = tf.compat.v1.global_variables_initializer()
 
     # Create a summary to monitor accuracy tensor
-    tf.summary.scalar("Accuracy", acc)
-    tf.summary.scalar("Loss", loss_op)
-    merged_summary = tf.summary.merge_all()
+    tf.compat.v1.summary.scalar("Accuracy", acc)
+    tf.compat.v1.summary.scalar("Loss", loss_op)
+    merged_summary = tf.compat.v1.summary.merge_all()
 
     # Logging
-    tf_logs_path = './tf_logs'
-    if os.path.exists(tf_logs_path):
-        for filename in os.listdir(tf_logs_path):
-            file_path = os.path.join(tf_logs_path, filename)
-            if os.path.isdir(file_path):
-                shutil.rmtree(file_path)
-            else:
-                os.remove(file_path)
-    os.makedirs('./tf_logs/train', exist_ok=True)
-    os.makedirs('./tf_logs/test', exist_ok=True)
+    tf_logs_path = os.path.join(os.getcwd(), 'tf_logs', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    os.makedirs(os.path.join(tf_logs_path, "train"), exist_ok=True)
+    os.makedirs(os.path.join(tf_logs_path, "test"), exist_ok=True)
 
     # Start training
     with tf.compat.v1.Session() as sess:
         # op to write logs to Tensorboard
-        summary_writer_train = tf.summary.FileWriter("./tf_logs/train", graph=tf.compat.v1.get_default_graph())
-        summary_writer_test = tf.summary.FileWriter("./tf_logs/test", graph=tf.compat.v1.get_default_graph())
+        summary_writer_train = tf.compat.v1.summary.FileWriter(os.path.join(tf_logs_path, "train"),
+                                                               graph=tf.compat.v1.get_default_graph())
+        summary_writer_test = tf.compat.v1.summary.FileWriter(os.path.join(tf_logs_path, "test"),
+                                                              graph=tf.compat.v1.get_default_graph())
 
         # Run the initializer
         sess.run(init)
@@ -184,9 +180,9 @@ def build_and_run(nn, n_input: int, n_classes: int,
         for step in range(1, n_steps + 1):
             batch_x, batch_y = train.next_batch(n_batch)
             # Run optimization op (backprop)
-            _, c = sess.run([train_op, loss_op],
-                            feed_dict={X: batch_x,
-                                       Y: batch_y})
+            c = sess.run(train_op,
+                         feed_dict={X: batch_x,
+                                    Y: batch_y})
 
             if step % display_step == 0 or step == 1:
                 # Calculate batch loss and accuracy
@@ -213,6 +209,7 @@ def build_and_run(nn, n_input: int, n_classes: int,
 
 
 def run():
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     data_folder = os.path.join('data/mini_data')
     data, class2id = loadData(data_folder, 3000)
     train, test = splitData(data, ratio=0.9)
