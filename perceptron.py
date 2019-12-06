@@ -39,11 +39,55 @@ class Datapack:
                 self.labels[self.batch_index:self.batch_index + n_batch, :],)
 
 
+def setupWeights(input_num: int, class_num: int) -> (dict, dict):
+    # Store layers weight & bias
+    weights = {
+        'out': tf.Variable(tf.random.normal([input_num, class_num]))
+    }
+    biases = {
+        'out': tf.Variable(tf.random.normal([class_num]))
+    }
+
+    return weights, biases
+
+
 # Define the neural network
 def perceptron(x: np.ndarray, weights: dict, biases: dict):
     global num_classes
     # Output fully connected layer with a neuron for each class
     out_layer = tf.matmul(x, weights['out']) + biases['out']
+    return out_layer
+
+
+def setupWeightsANN(input_num: int, class_num: int) -> (dict, dict):
+    # Store layers weight & bias
+    hidden_1 = 256*2
+    hidden_2 = 256
+    weights = {
+        'L1': tf.Variable(tf.random.normal([input_num, hidden_1])),
+        'L2': tf.Variable(tf.random.normal([hidden_1, hidden_2])),
+        'out': tf.Variable(tf.random.normal([hidden_2, class_num]))
+    }
+    biases = {
+        'L1': tf.Variable(tf.random.normal([hidden_1])),
+        'L2': tf.Variable(tf.random.normal([hidden_2])),
+        'out': tf.Variable(tf.random.normal([class_num]))
+    }
+
+    return weights, biases
+
+
+# Define the neural network
+def ANN(x: np.ndarray, weights: dict, biases: dict):
+    global num_classes
+    # Output fully connected layer with a neuron for each class
+    L1 = tf.matmul(x, weights['L1']) + biases['L1']
+    relu1 = tf.nn.relu(L1)
+    L2= tf.matmul(relu1, weights['L2']) + biases['L2']
+    relu2 = tf.nn.relu(L2)
+
+    out_layer = tf.matmul(relu2, weights['out']) + biases['out']
+
     return out_layer
 
 
@@ -109,18 +153,6 @@ def loadData(folder_path: str, class_cap: int = -1) -> (Datapack, dict):
     return data, class2id
 
 
-def setupWeights(input_num: int, class_num: int) -> (dict, dict):
-    # Store layers weight & bias
-    weights = {
-        'out': tf.Variable(tf.random.normal([input_num, class_num]))
-    }
-    biases = {
-        'out': tf.Variable(tf.random.normal([class_num]))
-    }
-
-    return weights, biases
-
-
 def build_and_run(nn, n_input: int, n_classes: int,
                   train: Datapack, test: Datapack,
                   n_steps: int, n_batch: int,
@@ -142,7 +174,7 @@ def build_and_run(nn, n_input: int, n_classes: int,
         loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Y))
     with tf.name_scope('SGD'):
         # Gradient Descent
-        train_op = tf.compat.v1.train.e(learning_rate).minimize(loss_op)
+        train_op = tf.compat.v1.train.AdamOptimizer(learning_rate).minimize(loss_op)
     with tf.name_scope('Accuracy'):
         # Accuracy
         acc = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
@@ -216,10 +248,10 @@ def run():
 
     # Parameters
     global learning_rate, display_step, epoch
-    learning_rate = 0.01
+    learning_rate = 0.1
     epoch = len(train.images)
     batch_size = 128 * 4
-    num_steps = (epoch * 100) // batch_size
+    num_steps = (epoch * 20) // batch_size
     print("Steps:", num_steps)
     display_step = (epoch // batch_size)
 
@@ -228,10 +260,15 @@ def run():
     num_input = len(data.images[0])
     num_classes = len(class2id)
 
-    p_weights, p_bias = setupWeights(num_input, num_classes)
-
+    USE_ANN = True
+    if USE_ANN:
+        p_weights, p_bias = setupWeightsANN(num_input, num_classes)
+        net = lambda x: ANN(x, p_weights, p_bias)
+    else:
+        p_weights, p_bias = setupWeights(num_input, num_classes)
+        net = lambda x: perceptron(x, p_weights, p_bias),
     build_and_run(
-        lambda x: perceptron(x, p_weights, p_bias),
+        net,
         n_input=num_input,
         n_classes=num_classes,
         train=train,
