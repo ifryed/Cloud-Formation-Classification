@@ -32,11 +32,17 @@ class Datapack:
     batch_index = 0
 
     def next_batch(self, n_batch: int) -> (np.ndarray, np.ndarray):
+        if n_batch < 0:
+            self.batch_index = 0
+            n_batch = len(self.images)
+
         if self.batch_index + n_batch >= len(self.images):
             self.batch_index = 0
 
-        return (self.images[self.batch_index:self.batch_index + n_batch, :],
-                self.labels[self.batch_index:self.batch_index + n_batch, :],)
+        mini_batch = (self.images[self.batch_index:self.batch_index + n_batch, :],
+                      self.labels[self.batch_index:self.batch_index + n_batch, :])
+        self.batch_index = self.batch_index + n_batch
+        return mini_batch
 
 
 def setupWeights(input_num: int, class_num: int) -> (dict, dict):
@@ -61,19 +67,30 @@ def perceptron(x: np.ndarray, weights: dict, biases: dict):
 
 def setupWeightsANN(input_num: int, class_num: int) -> (dict, dict):
     # Store layers weight & bias
-    hidden_1 = 256*2
-    hidden_2 = 256
-    weights = {
-        'L1': tf.Variable(tf.random.normal([input_num, hidden_1])),
-        'L2': tf.Variable(tf.random.normal([hidden_1, hidden_2])),
-        'out': tf.Variable(tf.random.normal([hidden_2, class_num]))
-    }
-    biases = {
-        'L1': tf.Variable(tf.random.normal([hidden_1])),
-        'L2': tf.Variable(tf.random.normal([hidden_2])),
-        'out': tf.Variable(tf.random.normal([class_num]))
-    }
+    hidden_arr = [
+        512 ^ 2,
+        512 ^ 2,
+        512 ^ 2,
+        256 ^ 2,
+        256 ^ 2,
+        256 ^ 2,
+        128 ^ 2,
+        128 ^ 2,
+        64 ^ 2,
+        64 ^ 2,
+        32 ^ 2,
+        32 ^ 2,
+    ]
+    weights = dict()
+    biases = dict()
+    last_output = input_num
+    for idx, hidden_layer in enumerate(hidden_arr):
+        weights['L' + str(idx)] = tf.Variable(tf.truncated_normal([last_output, hidden_layer], stddev=0.1))
+        biases['L' + str(idx)] = tf.Variable(tf.constant(0.1, shape=[hidden_layer]))
+        last_output = hidden_layer
 
+    weights['out'] = tf.Variable(tf.truncated_normal([hidden_layer, class_num], stddev=0.1))
+    biases['out'] = tf.Variable(tf.constant(0.1, shape=[class_num]))
     return weights, biases
 
 
@@ -81,12 +98,15 @@ def setupWeightsANN(input_num: int, class_num: int) -> (dict, dict):
 def ANN(x: np.ndarray, weights: dict, biases: dict):
     global num_classes
     # Output fully connected layer with a neuron for each class
-    L1 = tf.matmul(x, weights['L1']) + biases['L1']
-    relu1 = tf.nn.relu(L1)
-    L2= tf.matmul(relu1, weights['L2']) + biases['L2']
-    relu2 = tf.nn.relu(L2)
+    layers_keys = list(weights.keys())
+    Ls = [tf.matmul(x, weights[layers_keys[0]]) + biases[layers_keys[0]]]
+    relus = [tf.nn.relu(Ls[-1])]
+    for key in layers_keys[1:-1]:
+        newL = tf.matmul(relus[-1], weights[key]) + biases[key]
+        Ls.append(newL)
+        relus.append(tf.nn.relu(newL))
 
-    out_layer = tf.matmul(relu2, weights['out']) + biases['out']
+    out_layer = tf.add(tf.matmul(relus[-1], weights['out']), biases['out'])
 
     return out_layer
 
@@ -173,8 +193,13 @@ def build_and_run(nn, n_input: int, n_classes: int,
         # Minimize error using cross entropy
         loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Y))
     with tf.name_scope('SGD'):
-        # Gradient Descent
-        train_op = tf.compat.v1.train.AdamOptimizer(learning_rate).minimize(loss_op)
+        # Gradient Descent1
+        starter_learning_rate = 0.001
+        global_step = tf.Variable(0, trainable=False)
+        learning_rate = tf.compat.v1.train.exponential_decay(starter_learning_rate,
+                                                             global_step,
+                                                             epoch_steps * 20, 0.1, staircase=True)
+        train_op = tf.compat.v1.train.AdamOptimizer(learning_rate).minimize(loss_op, global_step=global_step)
     with tf.name_scope('Accuracy'):
         # Accuracy
         acc = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
@@ -216,21 +241,29 @@ def build_and_run(nn, n_input: int, n_classes: int,
                          feed_dict={X: batch_x,
                                     Y: batch_y})
 
-            if step % display_step == 0 or step == 1:
-                # Calculate batch loss and accuracy
-                print("Epoch " + str(epoch_count)
-                      + ",\t Training Accuracy= " + "{:.3f}".format(acc.eval({X: train.images, Y: train.labels}))
-                      + ",\t Test Accuracy= " + "{:.3f}".format(acc.eval({X: test.images, Y: test.labels})))
-                epoch_count += 1
+            if step % epoch_steps == 0 or step == 1:
+                # train_x, train_y = train.next_batch(n_batch)
+                # test_x, test_y = test.next_batch(n_batch)
+
+                train_x, train_y = train.next_batch(-1)
+                test_x, test_y = test.next_batch(-1)
 
                 _, _, summary_train = sess.run([acc, loss_op, merged_summary],
-                                               feed_dict={X: train.images,
-                                                          Y: train.labels})
+                                               feed_dict={X: train_x,
+                                                          Y: train_y})
                 summary_writer_train.add_summary(summary_train, step)
+
                 _, _, summary_test = sess.run([acc, loss_op, merged_summary],
-                                              feed_dict={X: test.images,
-                                                         Y: test.labels})
+                                              feed_dict={X: test_x,
+                                                         Y: test_y})
                 summary_writer_test.add_summary(summary_test, step)
+                # Calculate batch loss and accuracy
+                print("Epoch " + str(epoch_count)
+                      + ",\t Training Accuracy= " + "{:.6f}".format(acc.eval({X: train_x, Y: train_y}))
+                      + ",\t Test Accuracy= " + "{:.6f}".format(acc.eval({X: test_x, Y: test_y}))
+                      + ",\t Loss= " + "{:.6f}".format(loss_op.eval({X: train_x, Y: train_y}))
+                      + ",\t Learning Rate= " + str(learning_rate.eval()))
+                epoch_count += 1
 
         print("Optimization Finished!")
 
@@ -244,16 +277,15 @@ def run():
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     data_folder = os.path.join('data/mini_data')
     data, class2id = loadData(data_folder, 3000)
-    train, test = splitData(data, ratio=0.9)
+    train, test = splitData(data, ratio=0.7)
 
     # Parameters
-    global learning_rate, display_step, epoch
-    learning_rate = 0.1
+    global epoch_steps, epoch
     epoch = len(train.images)
-    batch_size = 128 * 4
-    num_steps = (epoch * 20) // batch_size
+    batch_size = min(epoch, 256)
+    epoch_steps = (epoch // batch_size)
+    num_steps = 500 * epoch_steps
     print("Steps:", num_steps)
-    display_step = (epoch // batch_size)
 
     # Network Parameters
     global num_classes, num_input
