@@ -31,7 +31,7 @@ class Datapack:
     labels: np.ndarray
     batch_index = 0
 
-    def next_batch(self, n_batch: int) -> (np.ndarray, np.ndarray):
+    def next_batch(self, n_batch: int, advance: bool = True) -> (np.ndarray, np.ndarray):
         if n_batch < 0:
             self.batch_index = 0
             n_batch = len(self.images)
@@ -41,7 +41,8 @@ class Datapack:
 
         mini_batch = (self.images[self.batch_index:self.batch_index + n_batch, :],
                       self.labels[self.batch_index:self.batch_index + n_batch, :])
-        self.batch_index = self.batch_index + n_batch
+        if advance:
+            self.batch_index = self.batch_index + n_batch
         return mini_batch
 
 
@@ -69,6 +70,20 @@ def setupWeightsANN(input_num: int, class_num: int) -> (dict, dict):
     # Store layers weight & bias
     hidden_arr = [
         64 ** 2,
+        64 ** 2,
+        64 ** 2,
+        64 ** 2,
+        64 ** 2,
+        32 ** 2,
+        32 ** 2,
+        32 ** 2,
+        32 ** 2,
+        32 ** 2,
+        32 ** 2,
+        32 ** 2,
+        32 ** 2,
+        32 ** 2,
+        32 ** 2,
         32 ** 2,
     ]
     weights = dict()
@@ -232,11 +247,11 @@ def build_and_run(nn, n_input: int, n_classes: int,
                                     Y: batch_y})
 
             if step % epoch_steps == 0 or step == 1:
-                # train_x, train_y = train.next_batch(n_batch)
-                # test_x, test_y = test.next_batch(n_batch)
+                train_x, train_y = train.next_batch(n_batch, False)
+                test_x, test_y = test.next_batch(n_batch)
 
-                train_x, train_y = train.next_batch(-1)
-                test_x, test_y = test.next_batch(-1)
+                # train_x, train_y = train.next_batch(-1)
+                # test_x, test_y = test.next_batch(-1)
 
                 _, _, summary_train = sess.run([acc, loss_op, merged_summary],
                                                feed_dict={X: train_x,
@@ -264,15 +279,15 @@ def build_and_run(nn, n_input: int, n_classes: int,
 
 
 def run():
-    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     data_folder = os.path.join('data/mini_data')
-    data, class2id = loadData(data_folder, 300)
+    data, class2id = loadData(data_folder, 3000)
     train, test = splitData(data, ratio=0.7)
 
     # Parameters
     global epoch_steps, epoch
     epoch = len(train.images)
-    batch_size = min(epoch, 32)
+    batch_size = min(epoch, 128*1)
     epoch_steps = (epoch // batch_size)
     num_steps = 500 * epoch_steps
     print("Steps:", num_steps)
