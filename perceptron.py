@@ -48,10 +48,10 @@ class Datapack:
 def setupWeights(input_num: int, class_num: int) -> (dict, dict):
     # Store layers weight & bias
     weights = {
-        'out': tf.Variable(tf.random.normal([input_num, class_num]))
+        'out': tf.Variable(tf.truncated_normal([input_num, class_num], stddev=0.1))
     }
     biases = {
-        'out': tf.Variable(tf.random.normal([class_num]))
+        'out': tf.Variable(tf.constant(0.1, shape=[class_num]))
     }
 
     return weights, biases
@@ -68,18 +68,8 @@ def perceptron(x: np.ndarray, weights: dict, biases: dict):
 def setupWeightsANN(input_num: int, class_num: int) -> (dict, dict):
     # Store layers weight & bias
     hidden_arr = [
-        512 ^ 2,
-        512 ^ 2,
-        512 ^ 2,
-        256 ^ 2,
-        256 ^ 2,
-        256 ^ 2,
-        128 ^ 2,
-        128 ^ 2,
-        64 ^ 2,
-        64 ^ 2,
-        32 ^ 2,
-        32 ^ 2,
+        64 ** 2,
+        32 ** 2,
     ]
     weights = dict()
     biases = dict()
@@ -276,13 +266,13 @@ def build_and_run(nn, n_input: int, n_classes: int,
 def run():
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     data_folder = os.path.join('data/mini_data')
-    data, class2id = loadData(data_folder, 3000)
+    data, class2id = loadData(data_folder, 300)
     train, test = splitData(data, ratio=0.7)
 
     # Parameters
     global epoch_steps, epoch
     epoch = len(train.images)
-    batch_size = min(epoch, 256)
+    batch_size = min(epoch, 32)
     epoch_steps = (epoch // batch_size)
     num_steps = 500 * epoch_steps
     print("Steps:", num_steps)
@@ -298,7 +288,7 @@ def run():
         net = lambda x: ANN(x, p_weights, p_bias)
     else:
         p_weights, p_bias = setupWeights(num_input, num_classes)
-        net = lambda x: perceptron(x, p_weights, p_bias),
+        net = lambda x: perceptron(x, p_weights, p_bias)
     build_and_run(
         net,
         n_input=num_input,
