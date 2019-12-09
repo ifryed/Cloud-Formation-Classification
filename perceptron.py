@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
-USE_GPU = True
+USE_GPU = False
 
 
 @dataclass
@@ -51,7 +51,7 @@ class Datapack:
 def setupWeights(input_num: int, class_num: int) -> (dict, dict):
     # Store layers weight & bias
     weights = {
-        'out': tf.Variable(tf.truncated_normal([input_num, class_num], stddev=0.1))
+        'out': tf.Variable(tf.random.truncated_normal([input_num, class_num], stddev=0.1))
     }
     biases = {
         'out': tf.Variable(tf.constant(0.1, shape=[class_num]))
@@ -71,32 +71,21 @@ def perceptron(x: np.ndarray, weights: dict, biases: dict):
 def setupWeightsANN(input_num: int, class_num: int) -> (dict, dict):
     # Store layers weight & bias
     hidden_arr = [
-        64 ** 2,
-        64 ** 2,
-        64 ** 2,
-        64 ** 2,
-        64 ** 2,
-        32 ** 2,
-        32 ** 2,
-        32 ** 2,
-        32 ** 2,
-        32 ** 2,
-        32 ** 2,
-        32 ** 2,
-        32 ** 2,
-        32 ** 2,
-        32 ** 2,
-        32 ** 2,
+        256**2,
+        64**2,
+        32**2,
+        16**2,
+        8**2,
     ]
     weights = dict()
     biases = dict()
     last_output = input_num
     for idx, hidden_layer in enumerate(hidden_arr):
-        weights['L' + str(idx)] = tf.Variable(tf.truncated_normal([last_output, hidden_layer], stddev=0.1))
+        weights['L' + str(idx)] = tf.Variable(tf.random.truncated_normal([last_output, hidden_layer], stddev=0.1))
         biases['L' + str(idx)] = tf.Variable(tf.constant(0.1, shape=[hidden_layer]))
         last_output = hidden_layer
 
-    weights['out'] = tf.Variable(tf.truncated_normal([hidden_layer, class_num], stddev=0.1))
+    weights['out'] = tf.Variable(tf.random.truncated_normal([hidden_layer, class_num], stddev=0.1))
     biases['out'] = tf.Variable(tf.constant(0.1, shape=[class_num]))
     return weights, biases
 
@@ -109,9 +98,9 @@ def ANN(x: np.ndarray, weights: dict, biases: dict):
     Ls = [tf.matmul(x, weights[layers_keys[0]]) + biases[layers_keys[0]]]
     relus = [tf.nn.relu(Ls[-1])]
     for key in layers_keys[1:-1]:
-        newL = tf.matmul(relus[-1], weights[key]) + biases[key]
+        newL = tf.add(tf.matmul(relus[-1], weights[key]), biases[key])
         Ls.append(newL)
-        relus.append(tf.nn.relu(newL))
+        relus.append(tf.nn.sigmoid(newL))
 
     out_layer = tf.add(tf.matmul(relus[-1], weights['out']), biases['out'])
 
@@ -137,6 +126,7 @@ def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
 
 
 def preProcess(img):
+    # img = cv2.resize(img, (128, 128))
     img = img / 255
     thrs = .5
     img[img < thrs] = 0
@@ -176,19 +166,19 @@ def loadData(folder_path: str, class_cap: int = -1) -> (Datapack, dict):
 
     data = Datapack(
         np.array(images, dtype=np.float32).squeeze(),
-        np.array(labels, dtype=np.float32))
+        np.array(labels, dtype=np.uint8))
     return data, class2id
 
 
 def build_and_run(nn, n_input: int, n_classes: int,
                   train: Datapack, test: Datapack,
                   n_steps: int, n_batch: int,
-                  weight: dict, biases: dict):
+                  weights: dict, biases: dict):
     # Construct model
     # tf Graph input
-    X = tf.compat.v1.placeholder("float", [None, n_input])
-    Y = tf.compat.v1.placeholder("float", [None, n_classes])
-    logits = nn(X)
+    X = tf.placeholder("float", [None, n_input])
+    Y = tf.placeholder("float", [None, n_classes])
+    logits = nn(X, weights, biases)
 
     # TensorBoard
     # Construct model and encapsulating all ops into scopes, making
@@ -201,28 +191,24 @@ def build_and_run(nn, n_input: int, n_classes: int,
         loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Y))
     with tf.name_scope('SGD'):
         # Gradient Descent1
-        starter_learning_rate = 0.001
+        starter_learning_rate = 0.1
         global_step = tf.Variable(0, trainable=False)
-        learning_rate = tf.compat.v1.train.exponential_decay(starter_learning_rate,
+        learning_rate = tf.train.exponential_decay(starter_learning_rate,
                                                              global_step,
-                                                             epoch_steps * 20, 0.1, staircase=True)
-        train_op = tf.compat.v1.train.AdamOptimizer(learning_rate).minimize(loss_op, global_step=global_step)
+                                                             epoch_steps * 100, 0.1, staircase=True)
+        train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss_op, global_step=global_step)
     with tf.name_scope('Accuracy'):
         # Accuracy
         acc = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
         acc = tf.reduce_mean(tf.cast(acc, tf.float32))
 
-    # Evaluate model (with test logits, for dropout to be disabled)
-    correct_pred = tf.equal(tf.argmax(logits, 1), tf.argmax(Y, 1))
-    accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
-
     # Initialize the variables (i.e. assign their default value)
-    init = tf.compat.v1.global_variables_initializer()
+    init = tf.global_variables_initializer()
 
     # Create a summary to monitor accuracy tensor
-    tf.compat.v1.summary.scalar("Accuracy", acc)
-    tf.compat.v1.summary.scalar("Loss", loss_op)
-    merged_summary = tf.compat.v1.summary.merge_all()
+    tf.summary.scalar("Accuracy", acc)
+    tf.summary.scalar("Loss", loss_op)
+    merged_summary = tf.summary.merge_all()
 
     # Logging
     tf_logs_path = os.path.join(os.getcwd(), 'tf_logs', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
@@ -230,12 +216,12 @@ def build_and_run(nn, n_input: int, n_classes: int,
     os.makedirs(os.path.join(tf_logs_path, "test"), exist_ok=True)
 
     # Start training
-    with tf.compat.v1.Session() as sess:
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         # op to write logs to Tensorboard
-        summary_writer_train = tf.compat.v1.summary.FileWriter(os.path.join(tf_logs_path, "train"),
-                                                               graph=tf.compat.v1.get_default_graph())
-        summary_writer_test = tf.compat.v1.summary.FileWriter(os.path.join(tf_logs_path, "test"),
-                                                              graph=tf.compat.v1.get_default_graph())
+        summary_writer_train = tf.summary.FileWriter(os.path.join(tf_logs_path, "train"),
+                                                               graph=tf.get_default_graph())
+        summary_writer_test = tf.summary.FileWriter(os.path.join(tf_logs_path, "test"),
+                                                              graph=tf.get_default_graph())
 
         # Run the initializer
         sess.run(init)
@@ -256,20 +242,20 @@ def build_and_run(nn, n_input: int, n_classes: int,
                     train_x, train_y = train.next_batch(-1)
                     test_x, test_y = test.next_batch(-1)
 
-                _, _, summary_train = sess.run([acc, loss_op, merged_summary],
-                                               feed_dict={X: train_x,
-                                                          Y: train_y})
+                train_acc, train_loss, summary_train = sess.run([acc, loss_op, merged_summary],
+                                                                feed_dict={X: train_x,
+                                                                           Y: train_y})
                 summary_writer_train.add_summary(summary_train, step)
 
-                _, _, summary_test = sess.run([acc, loss_op, merged_summary],
-                                              feed_dict={X: test_x,
-                                                         Y: test_y})
+                test_acc, summary_test = sess.run([acc, merged_summary],
+                                                  feed_dict={X: test_x,
+                                                             Y: test_y})
                 summary_writer_test.add_summary(summary_test, step)
                 # Calculate batch loss and accuracy
                 print("Epoch " + str(epoch_count)
-                      + ",\t Training Accuracy= " + "{:.6f}".format(acc.eval({X: train_x, Y: train_y}))
-                      + ",\t Test Accuracy= " + "{:.6f}".format(acc.eval({X: test_x, Y: test_y}))
-                      + ",\t Loss= " + "{:.6f}".format(loss_op.eval({X: train_x, Y: train_y}))
+                      + ",\t Training Accuracy= " + "{:.6f}".format(train_acc)
+                      + ",\t Test Accuracy= " + "{:.6f}".format(test_acc)
+                      + ",\t Loss= " + "{:.6f}".format(train_loss)
                       + ",\t Learning Rate= " + str(learning_rate.eval()))
                 epoch_count += 1
 
@@ -277,8 +263,8 @@ def build_and_run(nn, n_input: int, n_classes: int,
 
         # Calculate accuracy for the Cloud dataset test images
         print("Testing Accuracy:",
-              sess.run(accuracy, feed_dict={X: test.images,
-                                            Y: test.labels}))
+              sess.run(acc, feed_dict={X: test.images,
+                                       Y: test.labels}))
 
 
 def run():
@@ -291,9 +277,9 @@ def run():
     # Parameters
     global epoch_steps, epoch
     epoch = len(train.images)
-    batch_size = min(epoch, 128 * 1)
+    batch_size = min(epoch, 128)
     epoch_steps = (epoch // batch_size)
-    num_steps = 500 * epoch_steps
+    num_steps = 1000 * epoch_steps
     print("Steps:", num_steps)
 
     # Network Parameters
@@ -304,10 +290,10 @@ def run():
     USE_ANN = True
     if USE_ANN:
         p_weights, p_bias = setupWeightsANN(num_input, num_classes)
-        net = lambda x: ANN(x, p_weights, p_bias)
+        net = ANN
     else:
         p_weights, p_bias = setupWeights(num_input, num_classes)
-        net = lambda x: perceptron(x, p_weights, p_bias)
+        net = perceptron
     build_and_run(
         net,
         n_input=num_input,
@@ -316,11 +302,11 @@ def run():
         test=test,
         n_steps=num_steps,
         n_batch=batch_size,
-        weight=p_weights,
+        weights=p_weights,
         biases=p_bias
     )
 
 
 if __name__ == "__main__":
-    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
+    tf.logging.set_verbosity(tf.logging.INFO)
     run()
