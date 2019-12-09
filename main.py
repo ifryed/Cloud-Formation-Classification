@@ -62,48 +62,8 @@ def setupWeights(input_num: int, class_num: int) -> (dict, dict):
 
 # Define the neural network
 def perceptron(x: np.ndarray, weights: dict, biases: dict):
-    global num_classes
     # Output fully connected layer with a neuron for each class
-    out_layer = tf.matmul(x, weights['out']) + biases['out']
-    return out_layer
-
-
-def setupWeightsANN(input_num: int, class_num: int) -> (dict, dict):
-    # Store layers weight & bias
-    hidden_arr = [
-        256**2,
-        64**2,
-        32**2,
-        16**2,
-        8**2,
-    ]
-    weights = dict()
-    biases = dict()
-    last_output = input_num
-    for idx, hidden_layer in enumerate(hidden_arr):
-        weights['L' + str(idx)] = tf.Variable(tf.random.truncated_normal([last_output, hidden_layer], stddev=0.1))
-        biases['L' + str(idx)] = tf.Variable(tf.constant(0.1, shape=[hidden_layer]))
-        last_output = hidden_layer
-
-    weights['out'] = tf.Variable(tf.random.truncated_normal([hidden_layer, class_num], stddev=0.1))
-    biases['out'] = tf.Variable(tf.constant(0.1, shape=[class_num]))
-    return weights, biases
-
-
-# Define the neural network
-def ANN(x: np.ndarray, weights: dict, biases: dict):
-    global num_classes
-    # Output fully connected layer with a neuron for each class
-    layers_keys = list(weights.keys())
-    Ls = [tf.matmul(x, weights[layers_keys[0]]) + biases[layers_keys[0]]]
-    relus = [tf.nn.relu(Ls[-1])]
-    for key in layers_keys[1:-1]:
-        newL = tf.add(tf.matmul(relus[-1], weights[key]), biases[key])
-        Ls.append(newL)
-        relus.append(tf.nn.sigmoid(newL))
-
-    out_layer = tf.add(tf.matmul(relus[-1], weights['out']), biases['out'])
-
+    out_layer = tf.add(tf.matmul(x, weights['out']), biases['out'])
     return out_layer
 
 
@@ -194,8 +154,8 @@ def build_and_run(nn, n_input: int, n_classes: int,
         starter_learning_rate = 0.1
         global_step = tf.Variable(0, trainable=False)
         learning_rate = tf.train.exponential_decay(starter_learning_rate,
-                                                             global_step,
-                                                             epoch_steps * 100, 0.1, staircase=True)
+                                                   global_step,
+                                                   epoch_steps * 100, 0.1, staircase=True)
         train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss_op, global_step=global_step)
     with tf.name_scope('Accuracy'):
         # Accuracy
@@ -219,9 +179,9 @@ def build_and_run(nn, n_input: int, n_classes: int,
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         # op to write logs to Tensorboard
         summary_writer_train = tf.summary.FileWriter(os.path.join(tf_logs_path, "train"),
-                                                               graph=tf.get_default_graph())
+                                                     graph=tf.get_default_graph())
         summary_writer_test = tf.summary.FileWriter(os.path.join(tf_logs_path, "test"),
-                                                              graph=tf.get_default_graph())
+                                                    graph=tf.get_default_graph())
 
         # Run the initializer
         sess.run(init)
