@@ -24,6 +24,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
+from Perceptron import Perceptron
+from SimpleAnn import SimpleAnn
+
 USE_GPU = False
 
 
@@ -46,25 +49,6 @@ class Datapack:
         if advance:
             self.batch_index = self.batch_index + n_batch
         return mini_batch
-
-
-def setupWeights(input_num: int, class_num: int) -> (dict, dict):
-    # Store layers weight & bias
-    weights = {
-        'out': tf.Variable(tf.random.truncated_normal([input_num, class_num], stddev=0.1))
-    }
-    biases = {
-        'out': tf.Variable(tf.constant(0.1, shape=[class_num]))
-    }
-
-    return weights, biases
-
-
-# Define the neural network
-def perceptron(x: np.ndarray, weights: dict, biases: dict):
-    # Output fully connected layer with a neuron for each class
-    out_layer = tf.add(tf.matmul(x, weights['out']), biases['out'])
-    return out_layer
 
 
 def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
@@ -132,13 +116,12 @@ def loadData(folder_path: str, class_cap: int = -1) -> (Datapack, dict):
 
 def build_and_run(nn, n_input: int, n_classes: int,
                   train: Datapack, test: Datapack,
-                  n_steps: int, n_batch: int,
-                  weights: dict, biases: dict):
+                  n_steps: int, n_batch: int):
     # Construct model
     # tf Graph input
     X = tf.placeholder("float", [None, n_input])
     Y = tf.placeholder("float", [None, n_classes])
-    logits = nn(X, weights, biases)
+    logits = nn(X)
 
     # TensorBoard
     # Construct model and encapsulating all ops into scopes, making
@@ -151,11 +134,11 @@ def build_and_run(nn, n_input: int, n_classes: int,
         loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Y))
     with tf.name_scope('SGD'):
         # Gradient Descent1
-        starter_learning_rate = 0.1
+        starter_learning_rate = 0.5
         global_step = tf.Variable(0, trainable=False)
         learning_rate = tf.train.exponential_decay(starter_learning_rate,
                                                    global_step,
-                                                   epoch_steps * 100, 0.1, staircase=True)
+                                                   epoch_steps * 20, 0.1, staircase=True)
         train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss_op, global_step=global_step)
     with tf.name_scope('Accuracy'):
         # Accuracy
@@ -237,7 +220,7 @@ def run():
     # Parameters
     global epoch_steps, epoch
     epoch = len(train.images)
-    batch_size = min(epoch, 128)
+    batch_size = min(epoch, 128 * 2)
     epoch_steps = (epoch // batch_size)
     num_steps = 1000 * epoch_steps
     print("Steps:", num_steps)
@@ -249,11 +232,25 @@ def run():
 
     USE_ANN = True
     if USE_ANN:
-        p_weights, p_bias = setupWeightsANN(num_input, num_classes)
-        net = ANN
+        sim_ann = SimpleAnn(
+            hidden_lst=[
+                8 ** 2,
+                64 ** 2,
+                64 ** 2,
+                64 ** 2,
+                64 ** 2,
+                64 ** 2,
+            ],
+            input_num=num_input,
+            class_num=num_classes
+        )
+        net = sim_ann.getModel
     else:
-        p_weights, p_bias = setupWeights(num_input, num_classes)
-        net = perceptron
+        perceptron = Perceptron(
+            input_num=num_input,
+            class_num=num_classes)
+        net = perceptron.getModel
+
     build_and_run(
         net,
         n_input=num_input,
@@ -262,8 +259,6 @@ def run():
         test=test,
         n_steps=num_steps,
         n_batch=batch_size,
-        weights=p_weights,
-        biases=p_bias
     )
 
 
