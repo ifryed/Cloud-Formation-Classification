@@ -220,7 +220,7 @@ def run():
     # Parameters
     global epoch_steps, epoch
     epoch = len(train.images)
-    batch_size = min(epoch, 128 * 2)
+    batch_size = min(epoch, 128 // 2)
     epoch_steps = (epoch // batch_size)
     num_steps = 1000 * epoch_steps
     print("Steps:", num_steps)
@@ -234,12 +234,12 @@ def run():
     if USE_ANN:
         sim_ann = SimpleAnn(
             hidden_lst=[
-                8 ** 2,
+                128 ** 2,
                 64 ** 2,
-                64 ** 2,
-                64 ** 2,
-                64 ** 2,
-                64 ** 2,
+                32 ** 2,
+                32 ** 2,
+                16 ** 2,
+                8 ** 2
             ],
             input_num=num_input,
             class_num=num_classes
