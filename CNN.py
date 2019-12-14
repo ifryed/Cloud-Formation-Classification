@@ -33,8 +33,10 @@ def main():
         for img in tqdm(os.listdir(path)):  # iterate over each image per dogs and cats
             try:
                 img_array = cv2.imread(os.path.join(path, img), cv2.IMREAD_GRAYSCALE)  # convert to array
+                h, w = img_array.shape
+                img_array = img_array.reshape((h, w, 1))
                 training_data.append([img_array, class_num])  # add this to our training_data
-            except Exception as e:  # in the interest in keeping the output clean...
+            except IOError as e:  # in the interest in keeping the output clean...
                 pass
 
     random.shuffle(training_data)
@@ -48,8 +50,6 @@ def main():
 
     X = np.array(X)
     y = np.array(y)
-    # X = X.reshape(X.shape[0], 28, 28, 1)
-    # X = X[np.newaxis, :]
     pickle_out = open("X.pickle", "wb")
     pickle.dump(X, pickle_out)
     pickle_out.close()
