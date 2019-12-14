@@ -7,6 +7,8 @@ data/.idea/
 
 *.jpg
 
+**.pickle
+
 data/train.csv
 
 data/sample_submission.csv

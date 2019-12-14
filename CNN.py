@@ -7,6 +7,7 @@ import random
 import numpy as np
 import tensorflow as tf
 from keras.models import Sequential
+from keras.losses import sparse_categorical_crossentropy
 from keras.layers import Dense, Dropout, Activation, Flatten, Conv2D, MaxPooling2D
 import scipy
 import pickle
@@ -47,9 +48,8 @@ def main():
 
     X = np.array(X)
     y = np.array(y)
-    print(X[0])
     # X = X.reshape(X.shape[0], 28, 28, 1)
-    X = X[np.newaxis, :]
+    # X = X[np.newaxis, :]
     pickle_out = open("X.pickle", "wb")
     pickle.dump(X, pickle_out)
     pickle_out.close()
@@ -64,11 +64,10 @@ def main():
     pickle_in = open("y.pickle", "rb")
     y = pickle.load(pickle_in)
     print(X.shape)
-    # X = X / 255.0
 
     model = Sequential()
 
-    model.add(Conv2D(256, (3, 3), input_shape=(1, 256, 256, 1)))
+    model.add(Conv2D(256, (3, 3), input_shape=(256, 256, 1)))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
 
@@ -81,16 +80,18 @@ def main():
     model.add(Dense(64))
     model.add(Activation('relu'))
 
-    model.add(Dense(1))
-    model.add(Activation('sigmoid'))
+    model.add(Dense(len(CATEGORIES), activation='softmax'))
 
-    model.compile(loss='binary_crossentropy',
+    model.compile(loss=sparse_categorical_crossentropy,
                   optimizer='adam',
                   metrics=['accuracy'])
 
-    model.fit(X, y, batch_size=32, epochs=3, validation_split=0.3)
+    model.summary()
+
+    model.fit(X, y, batch_size=16, epochs=3, validation_split=0.3)
 
 
 if __name__ == "__main__":
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     main()
