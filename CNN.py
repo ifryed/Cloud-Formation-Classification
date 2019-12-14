@@ -63,23 +63,17 @@ def main():
 
     pickle_in = open("y.pickle", "rb")
     y = pickle.load(pickle_in)
-    print(X.shape)
 
     model = Sequential()
 
-    model.add(Conv2D(256, (3, 3), input_shape=(256, 256, 1)))
-    model.add(Activation('relu'))
+    model.add(Conv2D(256, (3, 3), input_shape=(256, 256, 1), activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
 
-    model.add(Conv2D(256, (3, 3)))
-    model.add(Activation('relu'))
+    model.add(Conv2D(256, (3, 3), activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
 
     model.add(Flatten())  # this converts our 3D feature maps to 1D feature vectors
-
-    model.add(Dense(64))
-    model.add(Activation('relu'))
-
+    model.add(Dense(64, activation='relu'))
     model.add(Dense(len(CATEGORIES), activation='softmax'))
 
     model.compile(loss=sparse_categorical_crossentropy,
