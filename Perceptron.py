@@ -11,6 +11,7 @@ class Perceptron:
 
     def getWeights(self) -> (dict, dict):
         # Store layers weight & bias
+
         weights = {
             'out': tf.Variable(tf.random.truncated_normal([self.input_num, self.class_num], stddev=0.1))
         }
@@ -18,6 +19,8 @@ class Perceptron:
             'out': tf.Variable(tf.constant(0.1, shape=[self.class_num]))
         }
 
+        tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, weights['out'])
+        tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, biases['out'])
         return weights, biases
 
     # Define the neural network
@@ -25,3 +28,4 @@ class Perceptron:
         # Output fully connected layer with a neuron for each class
         out_layer = tf.add(tf.matmul(x, self.weights['out']), self.biases['out'])
         return out_layer
+

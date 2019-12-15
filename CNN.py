@@ -1,3 +1,4 @@
+import datetime
 import os
 from dataclasses import dataclass
 # from tensorflow.keras.callbacks import TensorBoard
@@ -6,6 +7,7 @@ import random
 # import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+from keras import callbacks
 from keras.models import Sequential
 from keras.losses import sparse_categorical_crossentropy
 from keras.layers import Dense, Dropout, Activation, Flatten, Conv2D, MaxPooling2D
@@ -32,9 +34,10 @@ def main():
 
         for img in tqdm(os.listdir(path)):  # iterate over each image per dogs and cats
             try:
-                img_array = cv2.imread(os.path.join(path, img), cv2.IMREAD_GRAYSCALE)  # convert to array
-                h, w = img_array.shape
-                img_array = img_array.reshape((h, w, 1))
+                img_array = cv2.imread(os.path.join(path, img), cv2.IMREAD_GRAYSCALE)
+                img_array = cv2.resize(img_array, (128, 128))
+                img_h, img_w = img_array.shape
+                img_array = img_array.reshape((img_h, img_w, 1))
                 training_data.append([img_array, class_num])  # add this to our training_data
             except IOError as e:  # in the interest in keeping the output clean...
                 pass
@@ -66,7 +69,7 @@ def main():
 
     model = Sequential()
 
-    model.add(Conv2D(256, (3, 3), input_shape=(256, 256, 1), activation='relu'))
+    model.add(Conv2D(256, (3, 3), input_shape=(img_h, img_w, 1), activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
 
     model.add(Conv2D(256, (3, 3), activation='relu'))
@@ -82,10 +85,16 @@ def main():
 
     model.summary()
 
-    model.fit(X, y, batch_size=16, epochs=3, validation_split=0.3)
+    logdir = "tf_logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+    tensorboard_callback = callbacks.TensorBoard(log_dir=logdir)
+    model.fit(X, y,
+              batch_size=16,
+              epochs=3,
+              validation_split=0.3,
+              callbacks=[tensorboard_callback])
 
 
 if __name__ == "__main__":
-    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
+    tf.logging.set_verbosity(tf.logging.INFO)
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     main()
