@@ -131,14 +131,19 @@ def build_and_run(nn, n_input: int, n_classes: int,
         pred = tf.nn.softmax(logits)
     with tf.name_scope('Loss'):
         # Minimize error using cross entropy
+
+        regularizer = tf.contrib.layers.l1_regularizer(scale=0.1)
+        reg_variables = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+        reg_term = tf.contrib.layers.apply_regularization(regularizer, reg_variables)
         loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Y))
+        loss_op += reg_term
     with tf.name_scope('SGD'):
         # Gradient Descent1
-        starter_learning_rate = 0.5
+        starter_learning_rate = 0.1
         global_step = tf.Variable(0, trainable=False)
         learning_rate = tf.train.exponential_decay(starter_learning_rate,
                                                    global_step,
-                                                   epoch_steps * 20, 0.1, staircase=True)
+                                                   epoch_steps * 50, 0.85, staircase=True)
         train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss_op, global_step=global_step)
     with tf.name_scope('Accuracy'):
         # Accuracy
@@ -154,7 +159,7 @@ def build_and_run(nn, n_input: int, n_classes: int,
     merged_summary = tf.summary.merge_all()
 
     # Logging
-    tf_logs_path = os.path.join(os.getcwd(), 'tf_logs', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    tf_logs_path = os.path.join(os.getcwd(), 'tf_logs', 'perceptron', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
     os.makedirs(os.path.join(tf_logs_path, "train"), exist_ok=True)
     os.makedirs(os.path.join(tf_logs_path, "test"), exist_ok=True)
 
@@ -190,15 +195,16 @@ def build_and_run(nn, n_input: int, n_classes: int,
                                                                            Y: train_y})
                 summary_writer_train.add_summary(summary_train, step)
 
-                test_acc, summary_test = sess.run([acc, merged_summary],
-                                                  feed_dict={X: test_x,
-                                                             Y: test_y})
+                test_acc, test_loss, summary_test = sess.run([acc, loss_op, merged_summary],
+                                                             feed_dict={X: test_x,
+                                                                        Y: test_y})
                 summary_writer_test.add_summary(summary_test, step)
                 # Calculate batch loss and accuracy
                 print("Epoch " + str(epoch_count)
                       + ",\t Training Accuracy= " + "{:.6f}".format(train_acc)
-                      + ",\t Test Accuracy= " + "{:.6f}".format(test_acc)
                       + ",\t Loss= " + "{:.6f}".format(train_loss)
+                      + ",\t Test Accuracy= " + "{:.6f}".format(test_acc)
+                      + ",\t Loss= " + "{:.6f}".format(test_loss)
                       + ",\t Learning Rate= " + str(learning_rate.eval()))
                 epoch_count += 1
 
@@ -220,7 +226,7 @@ def run():
     # Parameters
     global epoch_steps, epoch
     epoch = len(train.images)
-    batch_size = min(epoch, 128 // 2)
+    batch_size = min(epoch, 128 * 4)
     epoch_steps = (epoch // batch_size)
     num_steps = 1000 * epoch_steps
     print("Steps:", num_steps)
@@ -230,7 +236,7 @@ def run():
     num_input = len(data.images[0])
     num_classes = len(class2id)
 
-    USE_ANN = True
+    USE_ANN = False
     if USE_ANN:
         sim_ann = SimpleAnn(
             hidden_lst=[

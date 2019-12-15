@@ -21,8 +21,14 @@ class SimpleAnn:
             biases['L' + str(idx)] = tf.Variable(tf.constant(0.1, shape=[hidden_layer]))
             last_output = hidden_layer
 
+            tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, weights['L' + str(idx)])
+            tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, biases['L' + str(idx)])
+
         weights['out'] = tf.Variable(tf.random.truncated_normal([hidden_layer, self.class_num], stddev=0.1))
         biases['out'] = tf.Variable(tf.constant(0.1, shape=[self.class_num]))
+
+        tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, weights['out'])
+        tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, biases['out'])
         return weights, biases
 
     # Define the neural network
