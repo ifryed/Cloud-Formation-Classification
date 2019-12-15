@@ -71,8 +71,7 @@ def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
 
 def preProcess(img):
     # img = cv2.resize(img, (128, 128))
-    img = img / 255
-    thrs = .5
+    thrs = 255//2
     img[img < thrs] = 0
     img[img >= thrs] = 1
 
@@ -132,18 +131,18 @@ def build_and_run(nn, n_input: int, n_classes: int,
     with tf.name_scope('Loss'):
         # Minimize error using cross entropy
 
-        regularizer = tf.contrib.layers.l1_regularizer(scale=0.1)
+        regularizer = tf.contrib.layers.l1_regularizer(scale=0.01)
         reg_variables = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
         reg_term = tf.contrib.layers.apply_regularization(regularizer, reg_variables)
         loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Y))
         loss_op += reg_term
     with tf.name_scope('SGD'):
         # Gradient Descent1
-        starter_learning_rate = 0.1
+        starter_learning_rate = 0.01
         global_step = tf.Variable(0, trainable=False)
         learning_rate = tf.train.exponential_decay(starter_learning_rate,
                                                    global_step,
-                                                   epoch_steps * 50, 0.85, staircase=True)
+                                                   epoch_steps * 100, .5, staircase=True)
         train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss_op, global_step=global_step)
     with tf.name_scope('Accuracy'):
         # Accuracy
