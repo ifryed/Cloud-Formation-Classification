@@ -13,6 +13,7 @@ Project: https://github.com/aymericdamien/TensorFlow-Examples/
 from __future__ import print_function
 
 # Import MNIST data
+import argparse
 import datetime
 import os
 import shutil
@@ -71,7 +72,7 @@ def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
 
 def preProcess(img):
     # img = cv2.resize(img, (128, 128))
-    thrs = 255//2
+    thrs = 255 // 2
     img[img < thrs] = 0
     img[img >= thrs] = 1
 
@@ -131,18 +132,18 @@ def build_and_run(nn, n_input: int, n_classes: int,
     with tf.name_scope('Loss'):
         # Minimize error using cross entropy
 
-        regularizer = tf.contrib.layers.l1_regularizer(scale=0.01)
+        regularizer = tf.contrib.layers.l1_regularizer(scale=0.001)
         reg_variables = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
         reg_term = tf.contrib.layers.apply_regularization(regularizer, reg_variables)
         loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Y))
         loss_op += reg_term
     with tf.name_scope('SGD'):
         # Gradient Descent1
-        starter_learning_rate = 0.01
+        starter_learning_rate = 0.1
         global_step = tf.Variable(0, trainable=False)
         learning_rate = tf.train.exponential_decay(starter_learning_rate,
                                                    global_step,
-                                                   epoch_steps * 100, .5, staircase=True)
+                                                   epoch_steps * 10, .5, staircase=True)
         train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss_op, global_step=global_step)
     with tf.name_scope('Accuracy'):
         # Accuracy
@@ -155,10 +156,11 @@ def build_and_run(nn, n_input: int, n_classes: int,
     # Create a summary to monitor accuracy tensor
     tf.summary.scalar("Accuracy", acc)
     tf.summary.scalar("Loss", loss_op)
+    tf.summary.scalar("Learning Rate", learning_rate)
     merged_summary = tf.summary.merge_all()
 
     # Logging
-    tf_logs_path = os.path.join(os.getcwd(), 'tf_logs', 'perceptron', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    tf_logs_path = os.path.join(os.getcwd(), 'tf_logs', 'ANN', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
     os.makedirs(os.path.join(tf_logs_path, "train"), exist_ok=True)
     os.makedirs(os.path.join(tf_logs_path, "test"), exist_ok=True)
 
@@ -215,7 +217,7 @@ def build_and_run(nn, n_input: int, n_classes: int,
                                        Y: test.labels}))
 
 
-def run():
+def run(args: argparse.Namespace):
     if not USE_GPU:
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     data_folder = os.path.join('data/mini_data')
@@ -225,7 +227,7 @@ def run():
     # Parameters
     global epoch_steps, epoch
     epoch = len(train.images)
-    batch_size = min(epoch, 128 * 4)
+    batch_size = min(epoch, 128)
     epoch_steps = (epoch // batch_size)
     num_steps = 1000 * epoch_steps
     print("Steps:", num_steps)
@@ -235,12 +237,12 @@ def run():
     num_input = len(data.images[0])
     num_classes = len(class2id)
 
-    USE_ANN = False
-    if USE_ANN:
+    print('Model:', args.model)
+    if args.model == 'ANN':
         sim_ann = SimpleAnn(
             hidden_lst=[
-                128 ** 2,
-                64 ** 2,
+                # 128 ** 2,
+                # 64 ** 2,
                 32 ** 2,
                 32 ** 2,
                 16 ** 2,
@@ -250,11 +252,16 @@ def run():
             class_num=num_classes
         )
         net = sim_ann.getModel
-    else:
+    elif args.model == 'SLP':
         perceptron = Perceptron(
             input_num=num_input,
             class_num=num_classes)
         net = perceptron.getModel
+    elif args.model == 'CNN':
+        pass
+    else:
+        print("Model not valid, use: [SLP,ANN,CNN]")
+        exit(1)
 
     build_and_run(
         net,
@@ -269,4 +276,14 @@ def run():
 
 if __name__ == "__main__":
     tf.logging.set_verbosity(tf.logging.INFO)
-    run()
+
+    parser = argparse.ArgumentParser(description='Train NN')
+    parser.add_argument('--model', dest="model", type=str, required=True,
+                        help='Which model to use? (SLP,ANN,CNN)')
+    parser.add_argument('--use_gpu', dest="gpu", type=bool,
+                        help='Use GPU?')
+
+    args = parser.parse_args()
+    USE_GPU = args.gpu
+
+    run(args)
