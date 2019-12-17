@@ -184,7 +184,7 @@ def build_and_run(nn, n_input: int, n_classes: int,
                                     Y: batch_y})
 
             if step % epoch_steps == 0 or step == 1:
-                if USE_GPU:
+                if USE_GPU and not GPU_FULL:
                     train_x, train_y = train.next_batch(n_batch, False)
                     test_x, test_y = test.next_batch(n_batch)
                 else:
@@ -221,13 +221,13 @@ def run(args: argparse.Namespace):
     if not USE_GPU:
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     data_folder = os.path.join('data/mini_data')
-    data, class2id = loadData(data_folder, 3000)
+    data, class2id = loadData(data_folder, args.samples)
     train, test = splitData(data, ratio=0.7)
 
     # Parameters
     global epoch_steps, epoch
     epoch = len(train.images)
-    batch_size = min(epoch, 128*2)
+    batch_size = min(epoch, args.mini_batch)
     epoch_steps = (epoch // batch_size)
     num_steps = 1000 * epoch_steps
     print("Steps:", num_steps)
@@ -280,10 +280,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train NN')
     parser.add_argument('--model', dest="model", type=str, required=True,
                         help='Which model to use? (SLP,ANN,CNN)')
+    parser.add_argument('--batch_size', dest="mini_batch", type=int, default=128,
+                        help='Mini Batch size')
+    parser.add_argument('--samples', dest="samples", type=int, default=3000,
+                        help='How many samples to load from each catagory')
     parser.add_argument('--use_gpu', dest="gpu", type=bool,
                         help='Use GPU?')
+    parser.add_argument('--gpu_full', dest="full_gpu", type=bool,
+                        help='Test on full test when using GPU?')
 
     args = parser.parse_args()
     USE_GPU = args.gpu
+    GPU_FULL = args.full_gpu
+    args.mini_batch = max(1, args.mini_batch)
 
     run(args)
