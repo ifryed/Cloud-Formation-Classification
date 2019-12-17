@@ -85,7 +85,7 @@ def main():
 
     model.summary()
 
-    logdir = "tf_logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+    logdir = "tf_logs/CNN/" + datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard_callback = callbacks.TensorBoard(log_dir=logdir)
     model.fit(X, y,
               batch_size=16,

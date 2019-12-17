@@ -132,18 +132,18 @@ def build_and_run(nn, n_input: int, n_classes: int,
     with tf.name_scope('Loss'):
         # Minimize error using cross entropy
 
-        regularizer = tf.contrib.layers.l1_regularizer(scale=0.001)
+        regularizer = tf.contrib.layers.l1_regularizer(scale=0.0001)
         reg_variables = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
         reg_term = tf.contrib.layers.apply_regularization(regularizer, reg_variables)
         loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Y))
         loss_op += reg_term
     with tf.name_scope('SGD'):
         # Gradient Descent1
-        starter_learning_rate = 0.1
+        starter_learning_rate = 0.5
         global_step = tf.Variable(0, trainable=False)
         learning_rate = tf.train.exponential_decay(starter_learning_rate,
                                                    global_step,
-                                                   epoch_steps * 10, .5, staircase=True)
+                                                   epoch_steps * 40, .5, staircase=True)
         train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss_op, global_step=global_step)
     with tf.name_scope('Accuracy'):
         # Accuracy
@@ -227,7 +227,7 @@ def run(args: argparse.Namespace):
     # Parameters
     global epoch_steps, epoch
     epoch = len(train.images)
-    batch_size = min(epoch, 128)
+    batch_size = min(epoch, 128*2)
     epoch_steps = (epoch // batch_size)
     num_steps = 1000 * epoch_steps
     print("Steps:", num_steps)
@@ -241,8 +241,8 @@ def run(args: argparse.Namespace):
     if args.model == 'ANN':
         sim_ann = SimpleAnn(
             hidden_lst=[
-                # 128 ** 2,
-                # 64 ** 2,
+                128 ** 2,
+                64 ** 2,
                 32 ** 2,
                 32 ** 2,
                 16 ** 2,
