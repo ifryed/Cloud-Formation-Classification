@@ -71,8 +71,9 @@ def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
 
 
 def preProcess(img):
-    # img = cv2.resize(img, (128, 128))
-    thrs = 255 // 2
+    img = cv2.resize(img, (128, 128))
+    img = img / 255
+    thrs = 0.5
     img[img < thrs] = 0
     img[img >= thrs] = 1
 
@@ -164,6 +165,11 @@ def build_and_run(nn, n_input: int, n_classes: int,
     os.makedirs(os.path.join(tf_logs_path, "train"), exist_ok=True)
     os.makedirs(os.path.join(tf_logs_path, "test"), exist_ok=True)
 
+    # Checkpoints
+    checkpoint_path = os.path.join(tf_logs_path, "checkpoints", "model.ckpt")
+    os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+    saver = tf.train.Saver(max_to_keep=5)
+
     # Start training
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         # op to write logs to Tensorboard
@@ -175,6 +181,11 @@ def build_and_run(nn, n_input: int, n_classes: int,
         # Run the initializer
         sess.run(init)
 
+        if args.weights_path:
+            # Restore model weights from previously saved model
+            saver.restore(sess, args.weights_path)
+            print("Model restored from file: %s" % args.weights_path)
+
         epoch_count = 0
         for step in range(1, n_steps + 1):
             batch_x, batch_y = train.next_batch(n_batch)
@@ -184,6 +195,8 @@ def build_and_run(nn, n_input: int, n_classes: int,
                                     Y: batch_y})
 
             if step % epoch_steps == 0 or step == 1:
+                save_path = saver.save(sess, checkpoint_path, global_step=epoch_count)
+
                 if USE_GPU and not GPU_FULL:
                     train_x, train_y = train.next_batch(n_batch, False)
                     test_x, test_y = test.next_batch(n_batch)
@@ -244,7 +257,6 @@ def run(args: argparse.Namespace):
                 128 ** 2,
                 64 ** 2,
                 32 ** 2,
-                32 ** 2,
                 16 ** 2,
                 8 ** 2
             ],
@@ -288,6 +300,8 @@ if __name__ == "__main__":
                         help='Use GPU?')
     parser.add_argument('--gpu_full', dest="full_gpu", type=bool,
                         help='Test on full test when using GPU?')
+    parser.add_argument('--weights', dest="weights_path", type=str,
+                        help='Location of weights')
 
     args = parser.parse_args()
     USE_GPU = args.gpu
