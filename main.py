@@ -71,8 +71,8 @@ def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
 
 
 def preProcess(img):
-    img = cv2.resize(img, (128, 128))
-    img = img / 255
+    img = cv2.resize(img, (32, 32))
+    img = img / 255.0
     thrs = 0.5
     img[img < thrs] = 0
     img[img >= thrs] = 1
@@ -144,7 +144,7 @@ def build_and_run(nn, n_input: int, n_classes: int,
         global_step = tf.Variable(0, trainable=False)
         learning_rate = tf.train.exponential_decay(starter_learning_rate,
                                                    global_step,
-                                                   epoch_steps * 40, .5, staircase=True)
+                                                   epoch_steps * 10, .5, staircase=True)
         train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss_op, global_step=global_step)
     with tf.name_scope('Accuracy'):
         # Accuracy
@@ -255,10 +255,10 @@ def run(args: argparse.Namespace):
         sim_ann = SimpleAnn(
             hidden_lst=[
                 128 ** 2,
+                128 ** 2,
                 64 ** 2,
                 32 ** 2,
-                16 ** 2,
-                8 ** 2
+                16 ** 2
             ],
             input_num=num_input,
             class_num=num_classes
