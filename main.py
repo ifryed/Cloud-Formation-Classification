@@ -4,7 +4,7 @@ and a Multi-Layer network.
 Links:
     [Cloud  Dataset](https://www.kaggle.com/c/understanding_cloud_organization/data).
 Author: Nomi Tzabari, Shai Aharon
-Project: https://github.com/ifryed/NLP_course/blob/Task_2
+Project: https://github.com/ifryed/NLP_course/tree/Task_2
 Compatible with TensorFlow V1.15
 """
 
