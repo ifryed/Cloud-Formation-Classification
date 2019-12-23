@@ -7,6 +7,12 @@ The data was gathered from this Kaggle compatition [ Understanding Clouds from S
 * Python 3.6  
 * Opencv 4.x  
 * TensorFlow V1.15  
+
+## Preparing data
+Download the data from [here](https://www.kaggle.com/c/understanding_cloud_organization/data). Extract them to the 'data' folder, and run from the folder:
+
+    python data_gen.py
+
   
 ## Usage:  
 	usage: main.py [-h] --model MODEL [--batch_size MINI_BATCH]  
