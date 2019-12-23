@@ -1,12 +1,10 @@
-""" Neural Network.
-A 2-Hidden Layers Fully Connected Neural Network (a.k.a Multilayer Perceptron)
-implementation with TensorFlow. This example is using the MNIST database
-of handwritten digits (http://yann.lecun.com/exdb/mnist/).
-This example is using TensorFlow layers, see 'neural_network_raw' example for
-a raw implementation with variables.
+""" NLP and DeapLearning course - Assignment 2
+In this assignment we tried to classify clouds formation using a Single layer network
+and a Multi-Layer network.
+
 Links:
-    [MNIST Dataset](http://yann.lecun.com/exdb/mnist/).
-Author: Aymeric Damien
+    [Cloud  Dataset](https://www.kaggle.com/c/understanding_cloud_organization/data).
+Author: Nomi Tzabari, Shai Aharon
 Project: https://github.com/aymericdamien/TensorFlow-Examples/
 """
 

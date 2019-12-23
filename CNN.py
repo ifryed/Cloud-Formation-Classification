@@ -31,7 +31,7 @@ def main():
         for img in tqdm(os.listdir(path)):  # iterate over each image per dogs and cats
             try:
                 img_array = cv2.imread(os.path.join(path, img), cv2.IMREAD_GRAYSCALE)
-                img_array = cv2.resize(img_array, (64, 64))
+                img_array = cv2.resize(img_array, (256, 256))
                 img_h, img_w = img_array.shape
                 img_array = img_array.reshape((img_h, img_w, 1))
                 training_data.append([img_array, class_num])  # add this to our training_data
@@ -55,16 +55,22 @@ def main():
     y = np.array(y)
 
     model = tf.keras.Sequential([
-        tf.keras.layers.Conv2D(256, (3, 3), input_shape=(img_h, img_w, 1), activation='relu'),
+        tf.keras.layers.Conv2D(20, (3, 3), input_shape=(img_h, img_w, 1), activation='relu'),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
 
-        tf.keras.layers.Conv2D(256, (3, 3), activation='relu'),
+        tf.keras.layers.Conv2D(50, (3, 3), activation='relu'),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
 
-        tf.keras.layers.Conv2D(256, (3, 3), activation='relu'),
+        tf.keras.layers.Conv2D(100, (3, 3), activation='relu'),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
 
-        tf.keras.layers.Conv2D(256, (3, 3), activation='relu'),
+        tf.keras.layers.Conv2D(100, (3, 3), activation='relu'),
+        tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+
+        tf.keras.layers.Conv2D(150, (3, 3), activation='relu'),
+        tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+
+        tf.keras.layers.Conv2D(150, (3, 3), activation='relu'),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
 
         tf.keras.layers.Flatten(),  # this converts our 3D feature maps to 1D feature vectors
@@ -81,6 +87,7 @@ def main():
     train_x, test_x, train_y, test_y = train_test_split(X, y, test_size=0.2)
     model.fit(x=train_x,
               y=train_y,
+              batch_size=128,
               epochs=50,
               validation_data=(test_x, test_y),
               callbacks=[tensorboard_callback])
