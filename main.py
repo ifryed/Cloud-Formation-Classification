@@ -1,22 +1,18 @@
 """ Neural Network.
-A 2-Hidden Layers Fully Connected Neural Network (a.k.a Multilayer Perceptron)
-implementation with TensorFlow. This example is using the MNIST database
-of handwritten digits (http://yann.lecun.com/exdb/mnist/).
-This example is using TensorFlow layers, see 'neural_network_raw' example for
-a raw implementation with variables.
+In this assignment we tried to classify clouds formation using a Single layer network
+and a Multi-Layer network.
 Links:
-    [MNIST Dataset](http://yann.lecun.com/exdb/mnist/).
-Author: Aymeric Damien
-Project: https://github.com/aymericdamien/TensorFlow-Examples/
+    [Cloud  Dataset](https://www.kaggle.com/c/understanding_cloud_organization/data).
+Author: Nomi Tzabari, Shai Aharon
+Project: https://github.com/ifryed/NLP_course/blob/Task_2
+Compatible with TensorFlow V1.15
 """
 
 from __future__ import print_function
 
-# Import MNIST data
 import argparse
 import datetime
 import os
-import shutil
 
 from dataclasses import dataclass
 
@@ -39,6 +35,9 @@ class Datapack:
     batch_index = 0
 
     def next_batch(self, n_batch: int, advance: bool = True) -> (np.ndarray, np.ndarray):
+        """
+        Gets the next batch of data
+        """
         if n_batch < 0:
             self.batch_index = 0
             n_batch = len(self.images)
@@ -54,6 +53,9 @@ class Datapack:
 
 
 def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
+    """
+    Splits the data into Train/Test with the train ratio
+    """
     imgs = data.images
     lbls = data.labels
     n_data = len(lbls)
@@ -71,7 +73,10 @@ def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
     return train, test
 
 
-def preProcess(img):
+def preProcess(img:np.ndarray):
+    """
+    Preprocesing the image before the training/testing
+    """
     img = cv2.resize(img, (32, 32))
     img = img / 255.0
     # thrs = 0.5
@@ -82,6 +87,9 @@ def preProcess(img):
 
 
 def loadData(folder_path: str, class_cap: int = -1) -> (Datapack, dict):
+    """
+    Loads the data from the data folder
+    """
     print("Loading data...")
     classes = os.listdir(folder_path)
     class2id = {x: i for i, x in enumerate(classes)}
@@ -119,6 +127,9 @@ def loadData(folder_path: str, class_cap: int = -1) -> (Datapack, dict):
 def build_and_run(nn, n_input: int, n_classes: int,
                   train: Datapack, test: Datapack,
                   n_steps: int, n_batch: int):
+    """
+    Builds the model and runs the training
+    """
     # Construct model
     # tf Graph input
     X = tf.placeholder("float", [None, n_input])
@@ -132,15 +143,16 @@ def build_and_run(nn, n_input: int, n_classes: int,
         # Model
         pred = tf.nn.softmax(logits)
     with tf.name_scope('Loss'):
-        # Minimize error using cross entropy
-
+        # Regularizer param
         regularizer = tf.contrib.layers.l1_regularizer(scale=0.000001)
         reg_variables = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
         reg_term = tf.contrib.layers.apply_regularization(regularizer, reg_variables)
+
+        # Minimize error using cross entropy
         loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Y))
         # loss_op += reg_term
     with tf.name_scope('SGD'):
-        # Gradient Descent1
+        # Gradient Descent
         starter_learning_rate = 0.5
         global_step = tf.Variable(0, trainable=False)
         learning_rate = tf.train.exponential_decay(starter_learning_rate,
@@ -190,7 +202,7 @@ def build_and_run(nn, n_input: int, n_classes: int,
         epoch_count = 0
         for step in range(1, n_steps + 1):
             batch_x, batch_y = train.next_batch(n_batch)
-            # Run optimization op (backprop)
+            # Run optimization op
             c = sess.run(train_op,
                          feed_dict={X: batch_x,
                                     Y: batch_y})
