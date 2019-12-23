@@ -30,5 +30,5 @@ Download the data from [here](https://www.kaggle.com/c/understanding_cloud_organ
                             Location of weights  
 
 ## Authors  
-[Naomi Tal Tsabari](https://github.com/naomital])  
+[Naomi Tal Tsabari](https://github.com/naomital)  
 [Shai Aharon](https://github.com/ifryed)
