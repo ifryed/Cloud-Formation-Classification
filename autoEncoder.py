@@ -38,23 +38,26 @@ def main():
 
     x = layers.Dense(8192, activation='relu')(encoder)
     x = layers.Reshape((8, 8, 128))(x)
+    x = layers.BatchNormalization()(x)
 
     x = layers.Conv2DTranspose(128, (3, 3), activation='relu', padding='same')(x)
     x = layers.Conv2DTranspose(128, (3, 3), strides=2, activation='relu', padding='same')(x)
+    x = layers.BatchNormalization()(x)
 
     x = layers.Conv2DTranspose(64, (3, 3), activation='relu', padding='same')(x)
     x = layers.Conv2DTranspose(64, (3, 3), strides=2, activation='relu', padding='same')(x)
 
-    x = layers.Conv2DTranspose(32, (3, 3), activation='relu', padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Conv2DTranspose(32, (3, 3), strides=2, activation='relu', padding='same')(x)
     decoder = layers.Conv2D(1, (3, 3), activation='relu', padding='same')(x)
 
     model = keras.Model(input_img, decoder)
     en_model = keras.Model(input_img, encoder)
-    initial_learning_rate = 0.01
+    initial_learning_rate = 0.1
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate,
         decay_steps=epoch * 5,
-        decay_rate=.9,
+        decay_rate=.5,
         staircase=True)
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule),
                   loss=keras.losses.mse)
@@ -121,5 +124,9 @@ def showTest(model: keras.Model, img: np.ndarray):
 
 
 if __name__ == "__main__":
-    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
+    config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
     main()
