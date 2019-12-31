@@ -24,16 +24,15 @@ def main():
     DATADIR = "data/mini_data"
     CATEGORIES = os.listdir(DATADIR)
     img_size = 256
-    train_x, test_x, train_y, test_y = prepareData(img_folder=DATADIR, img_size=img_size, sample_size=10)
+    train_x, test_x, train_y, test_y = prepareData(img_folder=DATADIR, img_size=img_size, sample_size=-10)
     epoch = len(train_x)
 
     model = tf.keras.Sequential([
-        tf.keras.layers.Conv3D(96, (5, 5, train_x[0].shape[2]), input_shape=train_x[0].shape, activation='relu',
+        tf.keras.layers.Conv3D(96, (11, 11, train_x[0].shape[2]), input_shape=train_x[0].shape, activation='relu',
                                padding='same'),
-        # tf.keras.layers.Conv3D(96, (1, 1, train_x[0].shape[2]), activation='relu', padding='same'),
         tf.keras.layers.MaxPooling3D(pool_size=(3, 3, 3), strides=(2, 2, 2)),
 
-        tf.keras.layers.Conv3D(256, (3, 3, 3), activation='relu', padding='same'),
+        tf.keras.layers.Conv3D(256, (5, 5, 5), activation='relu', padding='same'),
         tf.keras.layers.MaxPooling3D(pool_size=(3, 3, 3), strides=(2, 2, 2)),
 
         tf.keras.layers.Conv3D(256, (3, 3, 3), activation='relu', padding='same'),

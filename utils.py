@@ -34,7 +34,7 @@ def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_s
     X = []
     y = []
 
-    factor = 16
+    factor = 8
     img_downsize = img_size // factor
     for o_img, label in training_data:
         folded_img = np.zeros((img_downsize, img_downsize, factor ** 2, 1))
@@ -42,7 +42,7 @@ def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_s
         for i in range(factor ** 2):
             y_ind = i // factor
             x_ind = i - y_ind * factor
-            folded_img[:, :, i, 0] = o_img[y_ind::factor, x_ind::4, 0]
+            folded_img[:, :, i, 0] = o_img[y_ind::factor, x_ind::factor, 0]
 
         X.append(folded_img)
         y.append(label)
