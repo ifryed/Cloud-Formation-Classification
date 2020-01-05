@@ -28,17 +28,16 @@ def main():
     epoch = len(train_x)
 
     model = tf.keras.Sequential([
-        tf.keras.layers.Conv3D(96, (11, 11, train_x[0].shape[2]), input_shape=train_x[0].shape, activation='relu',
-                               padding='same'),
-        tf.keras.layers.MaxPooling3D(pool_size=(3, 3, 3), strides=(2, 2, 2)),
+        tf.keras.layers.Conv2D(32, (5, 5), input_shape=train_x[0].shape, activation='relu', padding='same'),
+        tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+        tf.keras.layers.Reshape((32, 32, 32, 16)),
 
-        tf.keras.layers.Conv3D(256, (5, 5, 5), activation='relu', padding='same'),
-        tf.keras.layers.MaxPooling3D(pool_size=(3, 3, 3), strides=(2, 2, 2)),
+        tf.keras.layers.Conv3D(32, (3, 3, 5), activation='relu'),
+        tf.keras.layers.Conv3D(32, (3, 3, 5), activation='relu'),
+        tf.keras.layers.MaxPooling3D(pool_size=(2, 2, 2)),
 
-        tf.keras.layers.Conv3D(256, (3, 3, 3), activation='relu', padding='same'),
-        tf.keras.layers.Conv3D(256, (3, 3, 3), activation='relu', padding='same'),
-        tf.keras.layers.Conv3D(128, (3, 3, 3), activation='relu', padding='same'),
-        tf.keras.layers.MaxPooling3D(pool_size=(3, 3, 3), strides=(2, 2, 2)),
+        tf.keras.layers.Conv3D(32, (5, 5, 3), activation='relu'),
+        tf.keras.layers.MaxPooling3D(pool_size=(2, 2, 2)),
 
         tf.keras.layers.Flatten(),
         tf.keras.layers.Dropout(0.4),
@@ -48,11 +47,11 @@ def main():
         tf.keras.layers.Dropout(0.4),
         tf.keras.layers.Dense(len(CATEGORIES), activation='softmax')
     ])
-    initial_learning_rate = 1e-5
+    initial_learning_rate = 1e-3
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate,
         decay_steps=epoch * 10,
-        decay_rate=.1,
+        decay_rate=.5,
         staircase=True)
 
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule),
@@ -67,7 +66,7 @@ def main():
 
     model.fit(x=train_x,
               y=train_y,
-              batch_size=8,
+              batch_size=32,
               epochs=100,
               validation_data=(test_x, test_y),
               callbacks=[tensorboard_callback,
