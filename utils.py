@@ -53,8 +53,9 @@ def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_s
     y = np.array(y)
 
     if normalize:
-        mu = X.mean(0)
-        img_std = X.std(0)
-        X = (X - mu) / img_std
+        # mu = X.mean(0)
+        # img_std = X.std(0)
+        # X = (X - mu) / img_std
+        X = X / 255.0
 
-    return train_test_split(X, y, test_size=0.2, random_state=24)
+    return train_test_split(X, y, test_size=0.3, random_state=24)
