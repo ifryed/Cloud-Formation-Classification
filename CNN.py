@@ -4,20 +4,13 @@ from __future__ import print_function
 
 import datetime
 import os
-import cv2
 import matplotlib.pyplot as plt
-import numpy as np
 import tensorflow as tf
 
 from datetime import datetime
-from sklearn.model_selection import train_test_split
 from tensorflow import keras
-from tqdm import tqdm
-import time
 
 from utils import prepareData
-
-NAME = "clouds recognition{}".format(int(time.time()))
 
 
 def main():
@@ -28,38 +21,40 @@ def main():
     epoch = len(train_x)
 
     model = tf.keras.Sequential([
-        tf.keras.layers.Conv2D(20, (3, 3), input_shape=(img_h, img_w, 1), activation='relu', padding='same'),
-        tf.keras.layers.Conv2D(20, (3, 3), activation='relu', padding='same'),
+        tf.keras.layers.Conv2D(20, (5, 5), input_shape=(img_h, img_w, 1), activation='relu', padding='same'),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
 
         tf.keras.layers.Conv2D(40, (3, 3), activation='relu', padding='same'),
-        tf.keras.layers.Conv2D(40, (3, 3), activation='relu', padding='same'),
+        tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+
         tf.keras.layers.Conv2D(40, (3, 3), activation='relu', padding='same'),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
 
+        tf.keras.layers.Conv2D(80, (3, 3), activation='relu', padding='same'),
+        tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+
+        tf.keras.layers.Conv2D(80, (3, 3), activation='relu', padding='same'),
+        tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+
         tf.keras.layers.Conv2D(120, (3, 3), activation='relu', padding='same'),
-        tf.keras.layers.Conv2D(120, (3, 3), activation='relu', padding='same'),
+        tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+
         tf.keras.layers.Conv2D(120, (3, 3), activation='relu', padding='same'),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
 
         tf.keras.layers.Flatten(),  # this converts our 3D feature maps to 1D feature vectors
+        tf.keras.layers.Dense(256, activation='relu'),
+        tf.keras.layers.Dense(256, activation='relu'),
         tf.keras.layers.Dropout(0.4),
-        tf.keras.layers.Dense(128, activation='relu'),
-        tf.keras.layers.Dropout(0.4),
-        tf.keras.layers.Dense(128, activation='relu'),
-        tf.keras.layers.Dropout(0.4),
-        tf.keras.layers.Dense(64, activation='relu'),
-        tf.keras.layers.Dropout(0.5),
-        tf.keras.layers.Dense(64, activation='relu'),
-        tf.keras.layers.Dropout(0.5),
+        tf.keras.layers.Dense(256, activation='relu'),
         tf.keras.layers.Dense(len(CATEGORIES), activation='softmax')
     ])
 
-    initial_learning_rate = 0.001
+    initial_learning_rate = 1e-3
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate,
         decay_steps=epoch * 5,
-        decay_rate=.5,
+        decay_rate=.1,
         staircase=True)
 
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule),
@@ -74,7 +69,7 @@ def main():
 
     model.fit(x=train_x,
               y=train_y,
-              batch_size=128,
+              batch_size=256,
               epochs=100,
               validation_data=(test_x, test_y),
               callbacks=[tensorboard_callback,
