@@ -16,13 +16,14 @@ from utils import prepareData
 def main():
     DATADIR = "data/mini_data"
     CATEGORIES = os.listdir(DATADIR)
-    img_size = img_h = img_w = 128
-    train_x, test_x, train_y, test_y = prepareData(img_folder=DATADIR, img_size=img_size, sample_size=-30)
+    img_size = 256
+    train_x, test_x, train_y, test_y = prepareData(img_folder=DATADIR, img_size=img_size, sample_size=-10)
     epoch = len(train_x)
 
     model = tf.keras.Sequential([
         tf.keras.layers.Conv2D(20, (5, 5), input_shape=(img_h, img_w, 1), activation='relu', padding='same'),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+        tf.keras.layers.Reshape((32, 32, 32, 16)),
 
         tf.keras.layers.Conv2D(40, (3, 3), activation='relu', padding='same'),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
@@ -77,9 +78,11 @@ def main():
 
 
 if __name__ == "__main__":
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    physical_devices = tf.config.experimental.list_physical_devices('GPU')
-    assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
-    config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    if 0:
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    else:
+        physical_devices = tf.config.experimental.list_physical_devices('GPU')
+        assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
+        config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     main()

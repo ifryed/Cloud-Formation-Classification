@@ -5,6 +5,8 @@ from __future__ import print_function
 import datetime
 import os
 import io
+
+from keras import regularizers
 from tensorflow import keras
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,8 +22,15 @@ NAME = "clouds recognition{}".format(int(time.time()))
 
 
 def main():
-    img_size = img_h = img_w = 32
-    train_x, test_x, train_y, test_y = prepareData(img_size=img_size, sample_size=-30)
+    DATA_DIR = "data/mini_data"
+    CATEGORIES = os.listdir(DATA_DIR)
+    img_size = img_h = img_w = 64
+    train_x, test_x, train_y, test_y = \
+        prepareData(
+            img_folder=DATA_DIR,
+            img_size=img_size,
+            sample_size=-128,
+            normalize=True)
     epoch = len(train_x)
 
     input_img = layers.Input(shape=(img_h, img_w, 1))
@@ -34,41 +43,55 @@ def main():
     x = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(x)
     x = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(x)
     x = layers.Flatten()(x)
-    encoder = layers.Dense(16 ** 2, activation='relu')(x)
+    mid_size = img_size//4
+    encoder = layers.Dense(mid_size ** 2, activation='relu', name='encoder_output')(x)
 
-    x = layers.Dense(8192, activation='relu')(encoder)
-    x = layers.Reshape((8, 8, 128))(x)
-    x = layers.BatchNormalization()(x)
-
+    x = layers.Dense(128 * (mid_size ** 2), activation='relu')(encoder)
+    x = layers.Reshape((mid_size, mid_size, 128))(x)
     x = layers.Conv2DTranspose(128, (3, 3), activation='relu', padding='same')(x)
     x = layers.Conv2DTranspose(128, (3, 3), strides=2, activation='relu', padding='same')(x)
-    x = layers.BatchNormalization()(x)
 
     x = layers.Conv2DTranspose(64, (3, 3), activation='relu', padding='same')(x)
     x = layers.Conv2DTranspose(64, (3, 3), strides=2, activation='relu', padding='same')(x)
 
-    x = layers.BatchNormalization()(x)
-    x = layers.Conv2DTranspose(32, (3, 3), strides=2, activation='relu', padding='same')(x)
-    decoder = layers.Conv2D(1, (3, 3), activation='relu', padding='same')(x)
+    x = layers.Conv2DTranspose(64, (3, 3), strides=1, activation='relu', padding='same')(x)
+    decoder = layers.Conv2D(1, (3, 3), activation='relu', padding='same', name="decoder_output")(x)
 
-    model = keras.Model(input_img, decoder)
-    en_model = keras.Model(input_img, encoder)
-    initial_learning_rate = 0.1
-    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate,
+    x = layers.Flatten()(encoder)
+    x = layers.Dense(32, activation='relu', name="Reg_nn")(x)
+    x = layers.Dense(32, activation='relu')(x)
+    x = layers.Dense(32, activation='relu')(x)
+    x = layers.Dropout(0.4)(x)
+
+    # And finally we add the main logistic regression layer
+    main_output = layers.Dense(len(CATEGORIES),
+                               activation=tf.keras.activations.softmax,
+                               name='main_output')(x)
+
+    model = keras.Model(input_img, [main_output, decoder])
+    decoder_model = keras.Model(input_img, decoder)
+    
+    initial_learning_rate_main = 1e-4
+    lr_schedule_main = keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate_main,
         decay_steps=epoch * 5,
-        decay_rate=.5,
+        decay_rate=1e-1,
         staircase=True)
-    model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule),
-                  loss=keras.losses.mse)
 
-    log_dir = os.path.join("tf_logs\\AE\\", datetime.now().strftime("%Y%m%d-%H%M%S/"))
-    os.makedirs(os.path.join(log_dir,'encoder'))
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule_main),
+                  metrics={'main_output': 'accuracy'},
+                  loss={'main_output': keras.losses.sparse_categorical_crossentropy,
+                        'decoder_output': tf.keras.losses.mean_absolute_error},
+                  loss_weights={'main_output': 1, 'decoder_output': 1})
+
+    log_dir = os.path.join("tf_logs", "AE", datetime.now().strftime("%Y%m%d-%H%M%S/"))
+    os.makedirs(os.path.join(log_dir, 'encoder'))
     tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, profile_batch=0)
-    lr_callback = keras.callbacks.LearningRateScheduler(schedule=lr_schedule)
+    lr_callback = keras.callbacks.LearningRateScheduler(schedule=lr_schedule_main)
 
-    save_callback = keras.callbacks.ModelCheckpoint(log_dir, monitor='val_loss', verbose=True, save_best_only=True,
-                                                    save_weights_only=False, mode='min', save_freq='epoch')
+    save_callback = keras.callbacks.ModelCheckpoint(log_dir, monitor='val_main_output_accuracy', verbose=True,
+                                                    save_best_only=True,
+                                                    save_weights_only=False, mode='max', save_freq='epoch')
 
     print(model.summary())
 
@@ -77,10 +100,10 @@ def main():
     # Using the file writer, log the reshaped image.
     def log_img_pred(epoch, logs):
         # Use the model to predict the values from the validation dataset.
-        test_img = model.predict(test_x[:1, :, :, :])
-        test_img = test_img.reshape((1, img_size, img_size, 1)).astype(np.uint8)
+        test_img = decoder_model.predict(test_x[2:3, :, :, :])
+        test_img = test_img.reshape((1, img_size, img_size, 1))
         fig, ax = plt.subplots(1, 2)
-        ax[0].imshow(test_x[0, :, :, :].astype(np.uint8).squeeze())
+        ax[0].imshow(test_x[2, :, :, :].squeeze())
         ax[1].imshow(test_img.squeeze())
 
         buf = io.BytesIO()
@@ -99,18 +122,18 @@ def main():
     cm_callback = keras.callbacks.LambdaCallback(on_epoch_end=log_img_pred)
 
     model.fit(x=train_x,
-              y=train_x,
-              batch_size=128,
-              epochs=50,
+              y=[train_y, train_x],
+              batch_size=256,
+              epochs=200,
               use_multiprocessing=True,
-              validation_data=(test_x, test_x),
+              validation_data=(test_x, [test_y, test_x]),
               callbacks=[tensorboard_callback,
                          save_callback,
                          cm_callback
                          ])
 
-    en_model.save(os.path.join(log_dir, 'encoder'))
-    img = test_x[0, :, :, 0].reshape((32, 32))
+    # en_model.save(os.path.join(log_dir, 'encoder'))
+    img = test_x[0, :, :, 0].reshape((img_h, img_w))
     showTest(model, img)
 
 
@@ -119,7 +142,7 @@ def showTest(model: keras.Model, img: np.ndarray):
     pred = model.predict(img.reshape((1, h, w, 1)))
     fig, axs = plt.subplots(1, 2)
     axs[0].imshow(img)
-    axs[1].imshow(pred.squeeze())
+    axs[1].imshow(pred[1].squeeze())
     plt.show()
 
 
