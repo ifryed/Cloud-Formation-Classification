@@ -43,24 +43,25 @@ def main():
     x = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(x)
     x = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(x)
     x = layers.Flatten()(x)
-    encoder = layers.Dense(16 ** 2, activation='relu', name='encoder_output')(x)
+    mid_size = img_size//4
+    encoder = layers.Dense(mid_size ** 2, activation='relu', name='encoder_output')(x)
 
-    x = layers.Dense(128 * (16 ** 2), activation='relu')(encoder)
-    x = layers.Reshape((16, 16, 128))(x)
+    x = layers.Dense(128 * (mid_size ** 2), activation='relu')(encoder)
+    x = layers.Reshape((mid_size, mid_size, 128))(x)
     x = layers.Conv2DTranspose(128, (3, 3), activation='relu', padding='same')(x)
     x = layers.Conv2DTranspose(128, (3, 3), strides=2, activation='relu', padding='same')(x)
+
     x = layers.Conv2DTranspose(64, (3, 3), activation='relu', padding='same')(x)
     x = layers.Conv2DTranspose(64, (3, 3), strides=2, activation='relu', padding='same')(x)
+
     x = layers.Conv2DTranspose(64, (3, 3), strides=1, activation='relu', padding='same')(x)
     decoder = layers.Conv2D(1, (3, 3), activation='relu', padding='same', name="decoder_output")(x)
 
-    # decod_flat = layers.Flatten()(decoder)
-    # decod_compress = layers.Dense(16 ** 2)(decod_flat)
-    #
-    # x = layers.add([decod_compress, encoder])
     x = layers.Flatten()(encoder)
-    x = layers.Dense(4, activation='relu', name="Reg_nn")(x)
-    # x = layers.Dropout(0.4)(x)
+    x = layers.Dense(32, activation='relu', name="Reg_nn")(x)
+    x = layers.Dense(32, activation='relu')(x)
+    x = layers.Dense(32, activation='relu')(x)
+    x = layers.Dropout(0.4)(x)
 
     # And finally we add the main logistic regression layer
     main_output = layers.Dense(len(CATEGORIES),
@@ -69,24 +70,19 @@ def main():
 
     model = keras.Model(input_img, [main_output, decoder])
     decoder_model = keras.Model(input_img, decoder)
-    en_model = keras.Model(input_img, encoder)
+    
     initial_learning_rate_main = 1e-4
     lr_schedule_main = keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate_main,
         decay_steps=epoch * 5,
         decay_rate=1e-1,
         staircase=True)
-    # initial_learning_rate = 1e-2
-    # lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-    #     initial_learning_rate,
-    #     decay_steps=epoch * 5,
-    #     decay_rate=.5,
-    #     staircase=True)
+
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule_main),
                   metrics={'main_output': 'accuracy'},
                   loss={'main_output': keras.losses.sparse_categorical_crossentropy,
                         'decoder_output': tf.keras.losses.mean_absolute_error},
-                  loss_weights={'main_output': 10, 'decoder_output': 1})
+                  loss_weights={'main_output': 1, 'decoder_output': 1})
 
     log_dir = os.path.join("tf_logs", "AE", datetime.now().strftime("%Y%m%d-%H%M%S/"))
     os.makedirs(os.path.join(log_dir, 'encoder'))
@@ -127,7 +123,7 @@ def main():
 
     model.fit(x=train_x,
               y=[train_y, train_x],
-              batch_size=128,
+              batch_size=256,
               epochs=200,
               use_multiprocessing=True,
               validation_data=(test_x, [test_y, test_x]),
