@@ -3,7 +3,37 @@ import cv2
 import numpy as np
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+import pandas as pd
 import matplotlib.pyplot as plt
+
+
+def rle_to_mask(rle_string: str, width: int, height: int) -> np.ndarray:
+    """
+    convert RLE(run length encoding) string to numpy array
+
+    Parameters:
+    rle_string (str): string of rle encoded mask
+    height (int): height of the mask
+    width (int): width of the mask
+
+    Returns:
+    numpy.array: numpy array of the mask
+    """
+
+    rows, cols = height, width
+
+    if rle_string == -1:
+        return np.zeros((height, width))
+    else:
+        rle_numbers = [int(num_string) for num_string in rle_string.split(' ')]
+        rle_pairs = np.array(rle_numbers).reshape(-1, 2)
+        img = np.zeros(rows * cols, dtype=np.uint8)
+        for index, length in rle_pairs:
+            index -= 1
+            img[index:index + length] = 1
+        img = img.reshape(cols, rows)
+        img = img.T
+        return img
 
 
 def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_size=3000, normalize=False):
@@ -59,3 +89,52 @@ def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_s
         X = X / 255.0
 
     return train_test_split(X, y, test_size=0.3, random_state=24)
+
+
+def prepareSegData(img_list_file: str = "data/train.csv", img_folder: str = "data/mini_data", img_size: int = 32,
+                   sample_size=3000, normalize=False):
+    kCATAGORIES = {'Fish': 0, 'Flower': 1, 'Gravel': 2, 'Sugar': 3}
+
+    data = pd.read_csv(img_list_file)
+    data = data[data['EncodedPixels'].isnull() == False]
+    image_label_data = dict()
+
+    samp_counter = sample_size * len(kCATAGORIES)
+    for row in tqdm(data.iterrows()):
+        img_name, img_type = row[1][0].split('_')
+        img_path = os.path.join(img_folder, img_name)
+
+        img = cv2.imread(img_path)
+        h, w, _ = img.shape
+        mask = rle_to_mask(row[1][1], w, h)
+
+        img = cv2.resize(img, (img_size, img_size))
+        mask = cv2.resize(mask, (img_size, img_size))
+        h, w, _ = img.shape
+
+        if img_name not in image_label_data.keys():
+            multi_mask = np.zeros((h, w, len(kCATAGORIES)))
+            image_label_data[img_name] = [img, multi_mask]
+        image_label_data[img_name][1][:, :, kCATAGORIES[img_type]] = mask
+
+        samp_counter -= 1
+        if samp_counter == 0:
+            break
+
+    image_label_data = list(image_label_data.values())
+    np.random.shuffle(image_label_data)
+
+    X = []
+    y = []
+    for img, seg_label in image_label_data:
+        X.append(
+            img.reshape(img_size, img_size, 3)
+        )
+        y.append(
+            seg_label.reshape(img_size, img_size, 4)
+        )
+
+    X = np.array(X).astype(np.float)
+    y = np.array(y).astype(np.float)
+
+    return train_test_split(X, y, test_size=0.2, random_state=24)
