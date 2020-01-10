@@ -34,26 +34,32 @@ def main():
     epoch = len(train_x)
 
     input_img = layers.Input(shape=(img_h, img_w, 1))
-    x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(input_img)
-    x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(x)
-    x = layers.Conv2D(32, (3, 3), strides=(2, 2), activation='relu', padding='same')(x)
-    x = layers.Conv2D(64, (3, 3), activation='relu', padding='same')(x)
-    x = layers.Conv2D(64, (3, 3), activation='relu', padding='same')(x)
-    x = layers.Conv2D(32, (3, 3), strides=(2, 2), activation='relu', padding='same')(x)
-    x = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(x)
-    x = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(x)
+    x = layers.Conv2D(32, (5, 5), activation='relu', padding='same')(input_img)
+    x = layers.Conv2D(32, (5, 5), activation='relu', padding='same')(x)
+    x = layers.Conv2D(32, (5, 5), activation='relu', padding='same')(x)
+    x = layers.Conv2D(32, (5, 5), strides=(2, 2), activation='relu', padding='same')(x)
+    x = layers.Conv2D(64, (5, 5), activation='relu', padding='same')(x)
+    x = layers.Conv2D(64, (5, 5), activation='relu', padding='same')(x)
+    x = layers.Conv2D(64, (5, 5), activation='relu', padding='same')(x)
+    x = layers.Conv2D(32, (5, 5), strides=(2, 2), activation='relu', padding='same')(x)
+    x = layers.Conv2D(128, (5, 5), activation='relu', padding='same')(x)
+    x = layers.Conv2D(128, (5, 5), activation='relu', padding='same')(x)
+    x = layers.Conv2D(128, (5, 5), activation='relu', padding='same')(x)
     x = layers.Flatten()(x)
     mid_size = img_size // 4
     encoder = layers.Dense(mid_size ** 2, activation='relu', name='encoder_output')(x)
 
     x = layers.Dense(128 * (mid_size ** 2), activation='relu')(encoder)
     x = layers.Reshape((mid_size, mid_size, 128))(x)
-    x = layers.Conv2DTranspose(128, (3, 3), activation='relu', padding='same')(x)
-    x = layers.Conv2DTranspose(128, (3, 3), strides=2, activation='relu', padding='same')(x)
-    x = layers.Conv2DTranspose(64, (3, 3), activation='relu', padding='same')(x)
-    x = layers.Conv2DTranspose(64, (3, 3), strides=2, activation='relu', padding='same')(x)
-    x = layers.Conv2DTranspose(64, (3, 3), strides=1, activation='relu', padding='same')(x)
-    decoder = layers.Conv2D(1, (3, 3), activation='relu', padding='same', name="decoder_output")(x)
+    x = layers.Conv2DTranspose(128, (5, 5), activation='relu', padding='same')(x)
+    x = layers.Conv2DTranspose(128, (5, 5), activation='relu', padding='same')(x)
+    x = layers.Conv2DTranspose(128, (5, 5), strides=2, activation='relu', padding='same')(x)
+    x = layers.Conv2DTranspose(64, (5, 5), activation='relu', padding='same')(x)
+    x = layers.Conv2DTranspose(64, (5, 5), activation='relu', padding='same')(x)
+    x = layers.Conv2DTranspose(64, (5, 5), strides=2, activation='relu', padding='same')(x)
+    x = layers.Conv2DTranspose(64, (5, 5), activation='relu', padding='same')(x)
+    x = layers.Conv2DTranspose(64, (5, 5), activation='relu', padding='same')(x)
+    decoder = layers.Conv2D(1, (5, 5), activation='relu', padding='same', name="decoder_output")(x)
 
     x = layers.Flatten()(encoder)
     x = layers.Dense(32, activation='relu', name="Reg_nn")(x)
@@ -76,7 +82,7 @@ def main():
         decay_rate=1e-1,
         staircase=True)
 
-    model.compile(optimizer=keras.optimizers.Adam(),  # learning_rate=lr_schedule_main),
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule_main),
                   metrics={'main_output': 'accuracy'},
                   loss={'main_output': keras.losses.sparse_categorical_crossentropy,
                         'decoder_output': tf.keras.losses.mse},
@@ -121,7 +127,7 @@ def main():
 
     model.fit(x=train_x,
               y=[train_y, train_x],
-              batch_size=256,
+              batch_size=128,
               epochs=200,
               use_multiprocessing=True,
               validation_data=(test_x, [test_y, test_x]),
