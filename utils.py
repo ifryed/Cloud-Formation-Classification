@@ -108,7 +108,7 @@ def prepareSegData(img_list_file: str = "data/train.csv", img_folder: str = "dat
         h, w, _ = img.shape
         mask = rle_to_mask(row[1][1], w, h)
 
-        img = cv2.resize(img, (img_size, img_size))
+        img = cv2.resize(img, (img_size, img_size)) / 255.0
         mask = cv2.resize(mask, (img_size, img_size))
         h, w, _ = img.shape
 
