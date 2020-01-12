@@ -99,14 +99,7 @@ def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_s
     y = []
 
     factor = 4
-    img_downsize = img_size // factor
     for o_img, label in training_data:
-        # folded_img = np.zeros((img_downsize, img_downsize, factor ** 2, 1))
-        #
-        # for i in range(factor ** 2):
-        #     y_ind = i // factor
-        #     x_ind = i - y_ind * factor
-        #     folded_img[:, :, i, 0] = o_img[y_ind::factor, x_ind::factor, 0]
 
         X.append(o_img)
         y.append(label)
@@ -115,9 +108,6 @@ def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_s
     y = np.array(y)
 
     if normalize:
-        # mu = X.mean(0)
-        # img_std = X.std(0)
-        # X = (X - mu) / img_std
         X = X / 255.0
 
     return NOT_SK_LEARN_train_test_split(X, y, test_size=0.3, random_state=24)

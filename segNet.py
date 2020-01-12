@@ -32,6 +32,8 @@ def main():
             normalize=True)
     epoch = len(train_x)
 
+    # Network construction
+    #   Encoder
     input_img = layers.Input(shape=[img_h, img_w, 3])
     x = layers.Conv2D(32, (5, 5), strides=(2, 2), activation='relu', padding='same')(input_img)  # 64
     x = layers.Conv2D(64, (5, 5), strides=1, activation='relu', padding='same')(x)
@@ -41,6 +43,7 @@ def main():
     x = layers.Conv2D(128, (5, 5), strides=1, activation='relu', padding='same')(x)
     x = layers.Conv2D(128, (5, 5), strides=(2, 2), activation='relu', padding='same')(x)  # 8
 
+    #   Decoder
     x = layers.Conv2DTranspose(128, (3, 3), strides=(2, 2), activation='relu', padding='same')(x)  # 16
     x = layers.Conv2D(128, (3, 3), strides=1, activation='relu', padding='same')(x)
     x = layers.Conv2DTranspose(128, (3, 3), strides=(2, 2), activation='relu', padding='same')(x)  # 32
@@ -64,7 +67,6 @@ def main():
 
     log_dir = os.path.join("tf_logs", "SegNet", datetime.now().strftime("%Y%m%d-%H%M%S/"))
     tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, profile_batch=0)
-    lr_callback = keras.callbacks.LearningRateScheduler(schedule=lr_schedule_main)
 
     save_callback = keras.callbacks.ModelCheckpoint(log_dir,
                                                     monitor='val_accuracy',
@@ -78,14 +80,13 @@ def main():
 
     file_writer = tf.summary.create_file_writer(log_dir)
 
-    # Using the file writer, log the reshaped image.
+    # Use the model to display the state of the autoencoder from the validation dataset.
     def log_img_pred(epoch, logs):
-        # Use the model to predict the values from the validation dataset.
         test_img = model.predict(test_x[2:3, :, :, :])
         test_img = test_img.squeeze()
         test_lbl = test_y[2, :, :, :].squeeze()
 
-        fig, ax = plt.subplots(4, 4)
+        fig, ax = plt.subplots(2, 4)
         ax[0, 0].imshow(test_lbl[:, :, 0])
         ax[0, 1].imshow(test_lbl[:, :, 1])
         ax[0, 2].imshow(test_lbl[:, :, 2])
@@ -94,18 +95,6 @@ def main():
         ax[1, 1].imshow(test_img[:, :, 1])
         ax[1, 2].imshow(test_img[:, :, 2])
         ax[1, 3].imshow(test_img[:, :, 3])
-
-        train_img = model.predict(train_x[2:3, :, :, :])
-        train_img = train_img.squeeze()
-        train_lbl = train_y[2, :, :, :].squeeze()
-        ax[2, 0].imshow(train_lbl[:, :, 0])
-        ax[2, 1].imshow(train_lbl[:, :, 1])
-        ax[2, 2].imshow(train_lbl[:, :, 2])
-        ax[2, 3].imshow(train_lbl[:, :, 3])
-        ax[3, 0].imshow(train_img[:, :, 0])
-        ax[3, 1].imshow(train_img[:, :, 1])
-        ax[3, 2].imshow(train_img[:, :, 2])
-        ax[3, 3].imshow(train_img[:, :, 3])
 
         buf = io.BytesIO()
         plt.savefig(buf, format='png')
@@ -154,9 +143,11 @@ def showTest(model: keras.Model, test_x, test_y: np.ndarray):
 
 
 if __name__ == "__main__":
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    physical_devices = tf.config.experimental.list_physical_devices('GPU')
-    assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
-    config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    if 0:
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    else:
+        physical_devices = tf.config.experimental.list_physical_devices('GPU')
+        assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
+        config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     main()

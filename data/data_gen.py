@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import os
 import cv2
-import matplotlib.pyplot as plt
 
 from utils import rle_to_mask
 

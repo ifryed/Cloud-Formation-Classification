@@ -43,7 +43,7 @@ def main():
         tf.keras.layers.Conv2D(120, (3, 3), activation='relu', padding='same'),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
 
-        tf.keras.layers.Flatten(),  # this converts our 3D feature maps to 1D feature vectors
+        tf.keras.layers.Flatten(),
         tf.keras.layers.Dense(256, activation='relu'),
         tf.keras.layers.Dense(256, activation='relu'),
         tf.keras.layers.Dropout(0.4),

@@ -18,8 +18,6 @@ import time
 
 from utils import prepareData
 
-NAME = "clouds recognition{}".format(int(time.time()))
-
 
 def main():
     DATA_DIR = "data/mini_data"
@@ -33,6 +31,8 @@ def main():
             normalize=True)
     epoch = len(train_x)
 
+    # Network construction
+    #   Encoder
     input_img = layers.Input(shape=(img_h, img_w, 1))
     x = layers.Conv2D(32, (5, 5), activation='relu', padding='same')(input_img)
     x = layers.Conv2D(32, (5, 5), activation='relu', padding='same')(x)
@@ -49,6 +49,7 @@ def main():
     mid_size = img_size // 4
     encoder = layers.Dense(mid_size ** 2, activation='relu', name='encoder_output')(x)
 
+    #   Decoder
     x = layers.Dense(128 * (mid_size ** 2), activation='relu')(encoder)
     x = layers.Reshape((mid_size, mid_size, 128))(x)
     x = layers.Conv2DTranspose(128, (5, 5), activation='relu', padding='same')(x)
@@ -59,15 +60,17 @@ def main():
     x = layers.Conv2DTranspose(64, (5, 5), strides=2, activation='relu', padding='same')(x)
     x = layers.Conv2DTranspose(64, (5, 5), activation='relu', padding='same')(x)
     x = layers.Conv2DTranspose(64, (5, 5), activation='relu', padding='same')(x)
+    # AutoEncoder output
     decoder = layers.Conv2D(1, (5, 5), activation='relu', padding='same', name="decoder_output")(x)
 
+    # ANN connected to the encoder
     x = layers.Flatten()(encoder)
     x = layers.Dense(32, activation='relu', name="Reg_nn")(x)
     x = layers.Dense(32, activation='relu')(x)
     x = layers.Dense(32, activation='relu')(x)
     x = layers.Dropout(0.4)(x)
 
-    # And finally we add the main logistic regression layer
+    # Main output
     main_output = layers.Dense(len(CATEGORIES),
                                activation=tf.keras.activations.softmax,
                                name='main_output')(x)
@@ -91,7 +94,6 @@ def main():
     log_dir = os.path.join("tf_logs", "AE", datetime.now().strftime("%Y%m%d-%H%M%S/"))
     os.makedirs(os.path.join(log_dir, 'encoder'))
     tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, profile_batch=0)
-    lr_callback = keras.callbacks.LearningRateScheduler(schedule=lr_schedule_main)
 
     save_callback = keras.callbacks.ModelCheckpoint(log_dir, monitor='val_main_output_accuracy', verbose=True,
                                                     save_best_only=True,
@@ -101,9 +103,8 @@ def main():
 
     file_writer = tf.summary.create_file_writer(log_dir)
 
-    # Using the file writer, log the reshaped image.
+    # Use the model to display the state of the autoencoder from the validation dataset.
     def log_img_pred(epoch, logs):
-        # Use the model to predict the values from the validation dataset.
         test_img = decoder_model.predict(test_x[2:3, :, :, :])
         test_img = test_img.reshape((1, img_size, img_size, 1))
         fig, ax = plt.subplots(1, 2)
@@ -151,9 +152,11 @@ def showTest(model: keras.Model, img: np.ndarray):
 
 
 if __name__ == "__main__":
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    physical_devices = tf.config.experimental.list_physical_devices('GPU')
-    assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
-    config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    if 0:
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    else:
+        physical_devices = tf.config.experimental.list_physical_devices('GPU')
+        assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
+        config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     main()
