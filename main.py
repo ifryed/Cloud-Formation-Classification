@@ -1,27 +1,21 @@
-""" Neural Network.
-A 2-Hidden Layers Fully Connected Neural Network (a.k.a Multilayer Perceptron)
-implementation with TensorFlow. This example is using the MNIST database
-of handwritten digits (http://yann.lecun.com/exdb/mnist/).
-This example is using TensorFlow layers, see 'neural_network_raw' example for
-a raw implementation with variables.
+""" NLP and DeapLearning course - Assignment 2
+In this assignment we tried to classify clouds formation using a Single layer network
+and a Multi-Layer network.
+
 Links:
-    [MNIST Dataset](http://yann.lecun.com/exdb/mnist/).
-Author: Aymeric Damien
+    [Cloud  Dataset](https://www.kaggle.com/c/understanding_cloud_organization/data).
+Author: Nomi Tzabari, Shai Aharon
 Project: https://github.com/aymericdamien/TensorFlow-Examples/
 """
 
 from __future__ import print_function
 
-# Import MNIST data
 import argparse
 import datetime
 import os
-import shutil
-
 from dataclasses import dataclass
 
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
@@ -39,6 +33,12 @@ class Datapack:
     batch_index = 0
 
     def next_batch(self, n_batch: int, advance: bool = True) -> (np.ndarray, np.ndarray):
+        """
+        Gets the next batch of data
+        :param n_batch: Size of batch
+        :param advance: False if you don't want to advance the index
+        :return: A batch of data
+        """
         if n_batch < 0:
             self.batch_index = 0
             n_batch = len(self.images)
@@ -54,6 +54,12 @@ class Datapack:
 
 
 def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
+    """
+    Splits the data to train/test
+    :param data: The data
+    :param ratio: The size of train in percentage
+    :return: Train, Test
+    """
     imgs = data.images
     lbls = data.labels
     n_data = len(lbls)
@@ -72,6 +78,11 @@ def splitData(data: Datapack, ratio: float = 0.7) -> (Datapack, Datapack):
 
 
 def preProcess(img):
+    """
+    Dose some simple pre-process to the images before they go into the NN
+    :param img: Original image
+    :return: Processed image
+    """
     img = cv2.resize(img, (32, 32))
     img = img / 255.0
     # thrs = 0.5
@@ -82,6 +93,12 @@ def preProcess(img):
 
 
 def loadData(folder_path: str, class_cap: int = -1) -> (Datapack, dict):
+    """
+    Load the data from the data path.
+    :param folder_path: Base folder for the data
+    :param class_cap: Maximum samples from each category
+    :return: The data
+    """
     print("Loading data...")
     classes = os.listdir(folder_path)
     class2id = {x: i for i, x in enumerate(classes)}
@@ -138,7 +155,7 @@ def build_and_run(nn, n_input: int, n_classes: int,
         reg_variables = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
         reg_term = tf.contrib.layers.apply_regularization(regularizer, reg_variables)
         loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Y))
-        # loss_op += reg_term
+        # loss_op += reg_term # Adds the regularization loss
     with tf.name_scope('SGD'):
         # Gradient Descent1
         starter_learning_rate = 0.5
