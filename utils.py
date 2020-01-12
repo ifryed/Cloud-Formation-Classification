@@ -1,13 +1,46 @@
 import os
 import cv2
 import numpy as np
-from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt
 
 
-def rle_to_mask(rle_string: str, width: int, height: int) -> np.ndarray:
+def NOT_SK_LEARN_train_test_split(
+        X: np.ndarray,
+        Y: np.ndarray,
+        test_size: float = 0.3,
+        random_state: int = 24, shuffle=True) -> (np.ndarray, np.ndarray, np.ndarray, np.ndarray):
+    """
+    Splits the data to train/test subsets, can shuffle the data too.
+    :param X: The data
+    :param Y: The labels
+    :param test_size: The test size in percentage
+    :param random_state: random seed
+    :param shuffle: True to shuffle the data before the split
+    :return: train_x, test_x, train_y, test_y
+    """
+    if shuffle:
+        np.random.seed(random_state)
+    data_size = len(X)
+    idxs = np.array([x for x in range(data_size)])
+    np.random.shuffle(idxs)
+
+    X = X[idxs]
+    Y = Y[idxs]
+
+    test_size_idx = int(data_size * test_size)
+
+    train_x = X[:-test_size_idx]
+    train_y = Y[:-test_size_idx]
+
+    test_x = X[test_size_idx:]
+    test_y = Y[test_size_idx:]
+
+    return train_x, test_x, train_y, test_y
+
+
+def rle_to_mask(rle_string: str, width: int, height: int, norm=False) -> np.ndarray:
     """
     convert RLE(run length encoding) string to numpy array
 
@@ -21,6 +54,9 @@ def rle_to_mask(rle_string: str, width: int, height: int) -> np.ndarray:
     """
 
     rows, cols = height, width
+    lbl_val = 255.
+    if norm:
+        lbl_val = 1.
 
     if rle_string == -1:
         return np.zeros((height, width))
@@ -30,15 +66,13 @@ def rle_to_mask(rle_string: str, width: int, height: int) -> np.ndarray:
         img = np.zeros(rows * cols, dtype=np.uint8)
         for index, length in rle_pairs:
             index -= 1
-            img[index:index + length] = 1
+            img[index:index + length] = lbl_val
         img = img.reshape(cols, rows)
         img = img.T
         return img
 
 
 def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_size=3000, normalize=False):
-    np.random.seed(42)
-
     CATEGORIES = os.listdir(img_folder)
     training_data = []
     max_data_sampeles = min([len(x) for x in [os.listdir(os.path.join(img_folder, y)) for y in CATEGORIES]])
@@ -60,8 +94,6 @@ def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_s
                     break
             except IOError as e:  # in the interest in keeping the output clean...
                 pass
-
-    np.random.shuffle(training_data)
 
     X = []
     y = []
@@ -88,12 +120,12 @@ def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_s
         # X = (X - mu) / img_std
         X = X / 255.0
 
-    return train_test_split(X, y, test_size=0.3, random_state=24)
+    return NOT_SK_LEARN_train_test_split(X, y, test_size=0.3, random_state=24)
 
 
 def prepareSegData(img_list_file: str = "data/train.csv", img_folder: str = "data/mini_data", img_size: int = 32,
                    sample_size=3000, normalize=False):
-    kCATAGORIES = {'Fish': 0, 'Flower': 1, 'Gravel': 2, 'Sugar': 3}
+    kCATAGORIES = {'Fish': 0, 'Gravel': 1, 'Flower': 2, 'Sugar': 3}
 
     data = pd.read_csv(img_list_file)
     data = data[data['EncodedPixels'].isnull() == False]
@@ -104,16 +136,18 @@ def prepareSegData(img_list_file: str = "data/train.csv", img_folder: str = "dat
         img_name, img_type = row[1][0].split('_')
         img_path = os.path.join(img_folder, img_name)
 
-        img = cv2.imread(img_path)
+        img = cv2.imread(img_path).astype(np.float)
         h, w, _ = img.shape
-        mask = rle_to_mask(row[1][1], w, h)
+        mask = rle_to_mask(row[1][1], w, h, norm=normalize)
 
-        img = cv2.resize(img, (img_size, img_size)) / 255.0
+        img = cv2.resize(img, (img_size, img_size))
+        if normalize:
+            img = img / 255.
         mask = cv2.resize(mask, (img_size, img_size))
         h, w, _ = img.shape
 
         if img_name not in image_label_data.keys():
-            multi_mask = np.zeros((h, w, len(kCATAGORIES)))
+            multi_mask = np.zeros((h, w, len(kCATAGORIES)), dtype=np.float)
             image_label_data[img_name] = [img, multi_mask]
         image_label_data[img_name][1][:, :, kCATAGORIES[img_type]] = mask
 
@@ -137,4 +171,4 @@ def prepareSegData(img_list_file: str = "data/train.csv", img_folder: str = "dat
     X = np.array(X).astype(np.float)
     y = np.array(y).astype(np.float)
 
-    return train_test_split(X, y, test_size=0.2, random_state=24)
+    return NOT_SK_LEARN_train_test_split

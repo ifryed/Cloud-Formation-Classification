@@ -16,7 +16,7 @@ from utils import prepareData
 def main():
     DATADIR = "data/mini_data"
     CATEGORIES = os.listdir(DATADIR)
-    img_size = 256
+    img_h = img_w = img_size = 256
     train_x, test_x, train_y, test_y = prepareData(img_folder=DATADIR, img_size=img_size, sample_size=-10)
     epoch = len(train_x)
 
