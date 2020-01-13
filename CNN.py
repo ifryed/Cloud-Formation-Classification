@@ -4,7 +4,6 @@ from __future__ import print_function
 
 import datetime
 import os
-import matplotlib.pyplot as plt
 import tensorflow as tf
 
 from datetime import datetime

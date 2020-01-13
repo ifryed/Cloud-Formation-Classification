@@ -1,9 +1,9 @@
 import argparse
 import os
+import sys
 
 import tensorflow.keras as keras
 import numpy as np
-import matplotlib.pyplot as plt
 
 from utils import prepareData
 
@@ -11,13 +11,18 @@ from utils import prepareData
 class NOT_SKLEARN_KNN(object):
     def __init__(self, n_neightbors=5):
         self.k_neigh = n_neightbors
+        self.data = []
+        self.labels = []
+        self.cats = []
 
     def fit(self, data, labels):
         self.data = data
         self.labels = labels
-        self.cats = list(set(self.labels))
+        self.cats = [x for x in range(4)]
 
     def predict(self, new_data):
+        if np.any(np.array([len(x) for x in [self.labels, self.cats, self.data]]) < 1):
+            sys.exit("Error: KNN model not fitted.")
         lbls = []
         for samp in new_data:
             nn_idxs = np.power(samp - self.data, 2).sum(axis=1).argsort()[:self.k_neigh]
@@ -45,7 +50,6 @@ def main(model_path: str, img_fld: str):
         img_h,
         sample_size=-30,
         normalize=True)
-    epoch = len(train_x)
 
     print("Building KNN model..")
     knn = getKNN(model, train_x, train_y)

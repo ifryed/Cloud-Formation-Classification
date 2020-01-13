@@ -3,7 +3,6 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 import pandas as pd
-import matplotlib.pyplot as plt
 
 
 def NOT_SK_LEARN_train_test_split(

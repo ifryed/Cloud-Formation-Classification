@@ -6,7 +6,6 @@ import datetime
 import os
 import io
 
-from keras import regularizers
 from tensorflow import keras
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,7 +13,6 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 from datetime import datetime
-import time
 
 from utils import prepareData
 
