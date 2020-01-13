@@ -6,6 +6,7 @@ import datetime
 import os
 import io
 
+from keras import regularizers
 from tensorflow import keras
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,12 +14,14 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 from datetime import datetime
+import time
 
 from utils import prepareData
 
 
 def main():
     DATA_DIR = "data/mini_data"
+    CATEGORIES = os.listdir(DATA_DIR)
     img_size = img_h = img_w = 64
     train_x, test_x, train_y, test_y = \
         prepareData(
@@ -60,8 +63,20 @@ def main():
     # AutoEncoder output
     decoder = layers.Conv2D(1, (5, 5), activation='relu', padding='same', name="decoder_output")(x)
 
+    # ANN connected to the encoder
+    x = layers.Flatten()(encoder)
+    x = layers.Dense(32, activation='relu', name="Reg_nn")(x)
+    x = layers.Dense(32, activation='relu')(x)
+    x = layers.Dense(32, activation='relu')(x)
+    x = layers.Dropout(0.4)(x)
+
+    # Main output
+    main_output = layers.Dense(len(CATEGORIES),
+                               activation=tf.keras.activations.softmax,
+                               name='main_output')(x)
+
+    model = keras.Model(input_img, [main_output, decoder])
     decoder_model = keras.Model(input_img, decoder)
-    encoder_model = keras.Model(input_img, encoder)
 
     initial_learning_rate_main = 1e-4
     lr_schedule_main = keras.optimizers.schedules.ExponentialDecay(
@@ -70,34 +85,21 @@ def main():
         decay_rate=1e-1,
         staircase=True)
 
-    decoder_model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule_main),
-                          loss=tf.keras.losses.mse
-                          )
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule_main),
+                  metrics={'main_output': 'accuracy'},
+                  loss={'main_output': keras.losses.sparse_categorical_crossentropy,
+                        'decoder_output': tf.keras.losses.mse},
+                  loss_weights={'main_output': 1, 'decoder_output': 1})
 
-    log_dir = os.path.join("tf_logs", "AE", datetime.now().strftime("%Y%m%d-%H%M%S/"))
+    log_dir = os.path.join("tf_logs", "AL", datetime.now().strftime("%Y%m%d-%H%M%S/"))
     os.makedirs(os.path.join(log_dir, 'encoder'))
     tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, profile_batch=0)
 
-    save_callback = tf.keras.callbacks.ModelCheckpoint(log_dir,
-                                                       monitor='val_loss',
-                                                       verbose=True,
-                                                       save_best_only=True,
-                                                       save_weights_only=False,
-                                                       mode='min',
-                                                       save_freq='epoch')
-    global best_loss
-    best_loss = 9999999999
+    save_callback = keras.callbacks.ModelCheckpoint(log_dir, monitor='val_main_output_accuracy', verbose=True,
+                                                    save_best_only=True,
+                                                    save_weights_only=False, mode='max', save_freq='epoch')
 
-    def saveEncoder(epoch, logs):
-        global best_loss
-        if logs['val_loss'] < best_loss:
-            best_loss = logs['val_loss']
-            encoder_model.save(os.path.join(log_dir, 'encoder'))
-
-    save_encoder_callback = tf.keras.callbacks.LambdaCallback(
-        on_epoch_end=lambda epoch, logs: saveEncoder(epoch, logs))
-
-    print(decoder_model.summary())
+    print(model.summary())
 
     file_writer = tf.summary.create_file_writer(log_dir)
 
@@ -124,20 +126,19 @@ def main():
     # Define the per-epoch callback.
     cm_callback = keras.callbacks.LambdaCallback(on_epoch_end=log_img_pred)
 
-    decoder_model.fit(x=train_x,
-                      y=train_x,
-                      batch_size=128,
-                      epochs=200,
-                      use_multiprocessing=True,
-                      validation_data=(test_x, test_x),
-                      callbacks=[tensorboard_callback,
-                                 save_callback,
-                                 save_encoder_callback,
-                                 cm_callback
-                                 ])
+    model.fit(x=train_x,
+              y=[train_y, train_x],
+              batch_size=128,
+              epochs=200,
+              use_multiprocessing=True,
+              validation_data=(test_x, [test_y, test_x]),
+              callbacks=[tensorboard_callback,
+                         save_callback,
+                         cm_callback
+                         ])
 
     img = test_x[0, :, :, 0].reshape((img_h, img_w))
-    showTest(decoder_model, img)
+    showTest(model, img)
 
 
 def showTest(model: keras.Model, img: np.ndarray):

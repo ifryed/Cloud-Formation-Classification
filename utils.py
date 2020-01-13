@@ -10,7 +10,7 @@ def NOT_SK_LEARN_train_test_split(
         X: np.ndarray,
         Y: np.ndarray,
         test_size: float = 0.3,
-        random_state: int = 24, shuffle=True) -> (np.ndarray, np.ndarray, np.ndarray, np.ndarray):
+        random_state: int = 42, shuffle=True) -> (np.ndarray, np.ndarray, np.ndarray, np.ndarray):
     """
     Splits the data to train/test subsets, can shuffle the data too.
     :param X: The data
@@ -29,13 +29,13 @@ def NOT_SK_LEARN_train_test_split(
     X = X[idxs]
     Y = Y[idxs]
 
-    test_size_idx = int(data_size * test_size)
+    test_size_int = int(data_size * test_size)
 
-    train_x = X[:-test_size_idx]
-    train_y = Y[:-test_size_idx]
+    train_x = X[:-test_size_int]
+    train_y = Y[:-test_size_int]
 
-    test_x = X[test_size_idx:]
-    test_y = Y[test_size_idx:]
+    test_x = X[-test_size_int:]
+    test_y = Y[-test_size_int:]
 
     return train_x, test_x, train_y, test_y
 
@@ -98,7 +98,6 @@ def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_s
     X = []
     y = []
 
-    factor = 4
     for o_img, label in training_data:
 
         X.append(o_img)
@@ -110,7 +109,7 @@ def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_s
     if normalize:
         X = X / 255.0
 
-    return NOT_SK_LEARN_train_test_split(X, y, test_size=0.3, random_state=24)
+    return NOT_SK_LEARN_train_test_split(X, y, test_size=0.3, random_state=42)
 
 
 def prepareSegData(img_list_file: str = "data/train.csv", img_folder: str = "data/mini_data", img_size: int = 32,
