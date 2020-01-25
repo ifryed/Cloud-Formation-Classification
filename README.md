@@ -1,5 +1,5 @@
 
-# DeepLearning Project: Cloud Formation Detection  
+# DeepLearning Project: Cloud Formation Classification  
   
 # Data  
 The data was gathered from this Kaggle compatition [ Understanding Clouds from Satellite Images](https://www.kaggle.com/c/understanding_cloud_organization/data)  
