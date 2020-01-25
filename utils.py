@@ -98,7 +98,6 @@ def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_s
     y = []
 
     for o_img, label in training_data:
-
         X.append(o_img)
         y.append(label)
 
@@ -108,7 +107,7 @@ def prepareData(img_folder: str = "data/mini_data", img_size: int = 32, sample_s
     if normalize:
         X = X / 255.0
 
-    return NOT_SK_LEARN_train_test_split(X, y, test_size=0.3, random_state=42)
+    return NOT_SK_LEARN_train_test_split(X, y, test_size=0.3, random_state=24)
 
 
 def prepareSegData(img_list_file: str = "data/train.csv", img_folder: str = "data/mini_data", img_size: int = 32,

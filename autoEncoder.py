@@ -103,10 +103,11 @@ def main():
 
     # Use the model to display the state of the autoencoder from the validation dataset.
     def log_img_pred(epoch, logs):
-        test_img = decoder_model.predict(test_x[2:3, :, :, :])
+        plt.gray()
+        test_img = decoder_model.predict(test_x[26:27, :, :, :])
         test_img = test_img.reshape((1, img_size, img_size, 1))
         fig, ax = plt.subplots(1, 2)
-        ax[0].imshow(test_x[2, :, :, :].squeeze())
+        ax[0].imshow(test_x[26, :, :, :].squeeze())
         ax[1].imshow(test_img.squeeze())
 
         buf = io.BytesIO()
@@ -136,7 +137,7 @@ def main():
                                  cm_callback
                                  ])
 
-    img = test_x[0, :, :, 0].reshape((img_h, img_w))
+    img = test_x[26, :, :, 0].reshape((img_h, img_w))
     showTest(decoder_model, img)
 
 
